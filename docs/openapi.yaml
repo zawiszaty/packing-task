@@ -1,0 +1,192 @@
+openapi: 3.0.3
+info:
+  title: Packing Service API
+  version: 1.0.0
+  description: API for selecting the smallest single box for a list of products.
+servers:
+  - url: http://localhost
+paths:
+  /pack:
+    post:
+      summary: Calculate smallest single box
+      operationId: calculateBoxSize
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackRequestDto'
+            examples:
+              simple:
+                value:
+                  products:
+                    - width: 3.4
+                      height: 2.1
+                      length: 3.0
+                      weight: 4.0
+                    - width: 4.9
+                      height: 1.0
+                      length: 2.4
+                      weight: 9.9
+      responses:
+        '200':
+          description: Behavior-oriented result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseDto'
+              examples:
+                boxReturned:
+                  value:
+                    data:
+                      type: packing-decision
+                      id: abc123
+                      attributes:
+                        outcome: BOX_RETURNED
+                        reason: null
+                        message: null
+                        box:
+                          id: 3
+                          width: 30.0
+                          height: 20.0
+                          length: 40.0
+                          maxWeight: 10.0
+                    meta:
+                      source: provider_3dbinpacking
+                      requestHash: abc123
+                noBoxReturned:
+                  value:
+                    data:
+                      type: packing-decision
+                      id: def456
+                      attributes:
+                        outcome: NO_BOX_RETURNED
+                        reason: NO_SINGLE_BOX_AVAILABLE
+                        message: Products cannot be packed into a single configured box.
+                        box: null
+                    meta:
+                      source: manual
+                      requestHash: def456
+                requestRejected:
+                  value:
+                    errors:
+                      - status: "422"
+                        code: VALIDATION_ERROR
+                        title: Invalid request body
+                        detail: width must be greater than 0
+components:
+  schemas:
+    PackProductRequestDto:
+      type: object
+      required: [width, height, length, weight]
+      properties:
+        width:
+          type: number
+          format: float
+          minimum: 0
+          exclusiveMinimum: true
+        height:
+          type: number
+          format: float
+          minimum: 0
+          exclusiveMinimum: true
+        length:
+          type: number
+          format: float
+          minimum: 0
+          exclusiveMinimum: true
+        weight:
+          type: number
+          format: float
+          minimum: 0
+          exclusiveMinimum: true
+    PackRequestDto:
+      type: object
+      required: [products]
+      properties:
+        products:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PackProductRequestDto'
+    PackBoxResponseDto:
+      type: object
+      required: [id, width, height, length, maxWeight]
+      properties:
+        id:
+          type: integer
+        width:
+          type: number
+          format: float
+        height:
+          type: number
+          format: float
+        length:
+          type: number
+          format: float
+        maxWeight:
+          type: number
+          format: float
+    PackingDecisionAttributesDto:
+      type: object
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [BOX_RETURNED, NO_BOX_RETURNED, REQUEST_REJECTED]
+        reason:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+        box:
+          allOf:
+            - $ref: '#/components/schemas/PackBoxResponseDto'
+          nullable: true
+    PackDataDto:
+      type: object
+      required: [type, id, attributes]
+      properties:
+        type:
+          type: string
+          enum: [packing-decision]
+        id:
+          type: string
+        attributes:
+          $ref: '#/components/schemas/PackingDecisionAttributesDto'
+    PackMetaResponseDto:
+      type: object
+      required: [source, requestHash]
+      properties:
+        source:
+          type: string
+          enum: [model, provider_3dbinpacking, manual]
+        requestHash:
+          type: string
+    ApiErrorDto:
+      type: object
+      required: [status, code, title, detail]
+      properties:
+        status:
+          type: string
+        code:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+    ApiResponseDto:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PackDataDto'
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiErrorDto'
+          nullable: true
+        meta:
+          $ref: '#/components/schemas/PackMetaResponseDto'
+          nullable: true

@@ -1,0 +1,130 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Functional\Presentation;
+
+use App\Application\Mapper\PackProductsCommandMapper;
+use App\Application\Mapper\StoredCalculationPayloadMapper;
+use App\Application\Service\RequestHashBuilder;
+use App\Application\UseCase\CalculateBoxSize;
+use App\Domain\Policy\Refresh\ManualResultsRequireRefreshPolicy;
+use App\Domain\Service\SimpleSmallestBoxSelector;
+use App\Infrastructure\CircuitBreaker\Simple\StaticCircuitBreaker;
+use App\Infrastructure\Factory\SerializerFactory;
+use App\Infrastructure\Factory\ValidatorFactory;
+use App\Infrastructure\Persistence\Doctrine\DoctrinePackagingRepository;
+use App\Infrastructure\Persistence\Doctrine\DoctrinePackingCalculationRepository;
+use App\Infrastructure\Persistence\Doctrine\Entity\Packaging;
+use App\Infrastructure\Policy\CircuitBreakerPackingPolicyRegistry;
+use App\Infrastructure\Policy\ManualPackingPolicy;
+use App\Infrastructure\Policy\ProviderPackingPolicy;
+use App\Infrastructure\Provider\Stub\StubThreeDBinPackingClient;
+use App\Presentation\Http\HttpApplication;
+use App\Presentation\Http\SymfonyPackRequestResolver;
+use GuzzleHttp\Psr7\Request;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Log\NullLogger;
+use Tests\Functional\Support\MySqlFunctionalTestCase;
+
+final class HttpApplicationFunctionalTest extends MySqlFunctionalTestCase
+{
+    public function testItReturnsBoxAndPersistsCalculationInMySql(): void
+    {
+        $smallBox = new Packaging(2.0, 2.0, 2.0, 10.0);
+        $largeBox = new Packaging(6.0, 6.0, 6.0, 20.0);
+        $this->entityManager->persist($smallBox);
+        $this->entityManager->persist($largeBox);
+        $this->entityManager->flush();
+        $smallBoxId = $smallBox->getId();
+        self::assertNotNull($smallBoxId);
+
+        $circuitBreaker = new StaticCircuitBreaker(available: false);
+        $providerPolicy = new ProviderPackingPolicy(
+            providerClient: new StubThreeDBinPackingClient(selectedBoxId: 2),
+            circuitBreaker: $circuitBreaker,
+        );
+        $manualPolicy = new ManualPackingPolicy(selector: new SimpleSmallestBoxSelector());
+        $registry = new CircuitBreakerPackingPolicyRegistry(
+            circuitBreaker: $circuitBreaker,
+            providerPolicy: $providerPolicy,
+            manualPolicy: $manualPolicy,
+        );
+
+        $application = new HttpApplication(
+            requestResolver: new SymfonyPackRequestResolver(
+                serializer: SerializerFactory::create(),
+                validator: ValidatorFactory::create(),
+            ),
+            calculateBoxSize: new CalculateBoxSize(
+                packingPolicyRegistry: $registry,
+                refreshPolicy: new ManualResultsRequireRefreshPolicy(),
+                packagingRepository: new DoctrinePackagingRepository(entityManager: $this->entityManager),
+                calculationRepository: new DoctrinePackingCalculationRepository(entityManager: $this->entityManager),
+                commandMapper: new PackProductsCommandMapper(),
+                storedPayloadMapper: new StoredCalculationPayloadMapper(),
+                requestHashBuilder: new RequestHashBuilder(),
+                logger: new NullLogger(),
+            ),
+            serializer: SerializerFactory::create(),
+        );
+
+        $response = $application->run(request: new Request(
+            method: 'POST',
+            uri: 'http://localhost/pack',
+            headers: ['Content-Type' => 'application/json'],
+            body: '{"products":[{"width":1.0,"height":1.0,"length":1.0,"weight":1.0}]}',
+        ));
+
+        $payload = $this->decodePayload($response);
+        $data = $this->requireArray($payload, 'data');
+        $attributes = $this->requireArray($data, 'attributes');
+        $box = $this->requireArray($attributes, 'box');
+        $meta = $this->requireArray($payload, 'meta');
+        $outcome = $attributes['outcome'] ?? null;
+        $source = $meta['source'] ?? null;
+        $boxId = $box['id'] ?? null;
+        $requestHash = $meta['requestHash'] ?? null;
+        self::assertIsString($outcome);
+        self::assertIsString($source);
+        self::assertIsInt($boxId);
+        self::assertIsString($requestHash);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('BOX_RETURNED', $outcome);
+        self::assertSame('manual', $source);
+        self::assertSame($smallBoxId, $boxId);
+
+        $saved = (new DoctrinePackingCalculationRepository($this->entityManager))
+            ->findLatestByInputHash($requestHash);
+
+        self::assertNotNull($saved);
+        self::assertSame('manual', $saved->providerSource);
+        self::assertSame($smallBoxId, $saved->selectedBoxId);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodePayload(ResponseInterface $response): array
+    {
+        $decoded = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function requireArray(array $payload, string $key): array
+    {
+        $value = $payload[$key] ?? null;
+        self::assertIsArray($value);
+
+        /** @var array<string, mixed> $value */
+        return $value;
+    }
+}

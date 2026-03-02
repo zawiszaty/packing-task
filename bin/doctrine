@@ -1,10 +1,13 @@
 #!/usr/bin/env php
 <?php
 
+use App\Infrastructure\Persistence\Doctrine\EntityManagerFactory;
 use Doctrine\ORM\Tools\Console\ConsoleRunner;
 use Doctrine\ORM\Tools\Console\EntityManagerProvider\SingleManagerProvider;
 
-$entityManager = require __DIR__ . '/../src/bootstrap.php';
+require __DIR__ . '/../vendor/autoload.php';
+
+$entityManager = EntityManagerFactory::create();
 
 ConsoleRunner::run(
     new SingleManagerProvider($entityManager)
