@@ -17,6 +17,7 @@ use App\Presentation\Http\Exception\RequestValidationException;
 use GuzzleHttp\Psr7\Response;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 
 final class HttpApplication
@@ -25,6 +26,7 @@ final class HttpApplication
         private readonly SymfonyPackRequestResolver $requestResolver,
         private readonly FindBoxSize $findBoxSize,
         private readonly SerializerInterface $serializer,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -65,6 +67,14 @@ final class HttpApplication
                 422,
             );
         } catch (\Throwable $exception) {
+            $this->logger->error('http.unhandled_exception', [
+                'method' => $request->getMethod(),
+                'uri' => (string) $request->getUri(),
+                'exceptionClass' => $exception::class,
+                'message' => $exception->getMessage(),
+                'exception' => $exception,
+            ]);
+
             return $this->jsonResponse(
                 new ApiResponseDto(
                     errors: [
@@ -72,7 +82,7 @@ final class HttpApplication
                             status: '500',
                             code: 'INTERNAL_ERROR',
                             title: 'Internal server error',
-                            detail: $exception->getMessage(),
+                            detail: 'An unexpected error occurred.',
                         ),
                     ],
                 ),

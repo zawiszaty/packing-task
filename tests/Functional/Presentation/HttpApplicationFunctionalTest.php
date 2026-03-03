@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace Tests\Functional\Presentation;
 
 use App\Application\Mapper\PackProductsCommandMapper;
+use App\Application\Packing\CalculateBoxSize as CalculateBoxSizeRunner;
+use App\Application\Packing\CalculateBoxSizeDecisionMapper;
+use App\Application\Packing\PackingRefreshDifferenceSpecification;
+use App\Application\Packing\RefreshPackingResult;
+use App\Application\Packing\StorePackingCalculation;
 use App\Application\Service\RequestHashBuilder;
-use App\Application\UseCase\CalculateBoxSize;
+use App\Application\UseCase\FindBoxSize;
 use App\Domain\Policy\Refresh\ManualResultsRequireRefreshPolicy;
 use App\Domain\Service\SimpleSmallestBoxSelector;
 use App\Infrastructure\CircuitBreaker\Simple\StaticCircuitBreaker;
@@ -55,16 +60,42 @@ final class HttpApplicationFunctionalTest extends MySqlFunctionalTestCase
                 serializer: SerializerFactory::create(),
                 validator: ValidatorFactory::create(),
             ),
-            findBoxSize: new CalculateBoxSize(
-                packingPolicyRegistry: $registry,
-                refreshPolicy: new ManualResultsRequireRefreshPolicy(),
-                packagingRepository: new DoctrinePackagingRepository(entityManager: $this->entityManager),
-                calculationRepository: new DoctrinePackingCalculationRepository(entityManager: $this->entityManager),
-                commandMapper: new PackProductsCommandMapper(),
-                requestHashBuilder: new RequestHashBuilder(),
-                logger: new NullLogger(),
-            ),
+            findBoxSize: (function () use ($registry): FindBoxSize {
+                $logger = new NullLogger();
+                $packagingRepository = new DoctrinePackagingRepository(entityManager: $this->entityManager);
+                $calculationRepository = new DoctrinePackingCalculationRepository(entityManager: $this->entityManager);
+                $calculateBoxSizeDecision = new CalculateBoxSizeDecisionMapper();
+                $calculateBoxSize = new CalculateBoxSizeRunner(
+                    packingPolicyRegistry: $registry,
+                    logger: $logger,
+                );
+                $storePackingCalculation = new StorePackingCalculation(
+                    calculationRepository: $calculationRepository,
+                    logger: $logger,
+                );
+
+                return new FindBoxSize(
+                    refreshPolicy: new ManualResultsRequireRefreshPolicy(),
+                    packagingRepository: $packagingRepository,
+                    calculationRepository: $calculationRepository,
+                    commandMapper: new PackProductsCommandMapper(),
+                    requestHashBuilder: new RequestHashBuilder(),
+                    calculateBoxSize: $calculateBoxSize,
+                    calculateBoxSizeDecision: $calculateBoxSizeDecision,
+                    storePackingCalculation: $storePackingCalculation,
+                    refreshPackingResult: new RefreshPackingResult(
+                        packagingRepository: $packagingRepository,
+                        calculateBoxSize: $calculateBoxSize,
+                        calculateBoxSizeDecision: $calculateBoxSizeDecision,
+                        storePackingCalculation: $storePackingCalculation,
+                        packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
+                        logger: $logger,
+                    ),
+                    logger: $logger,
+                );
+            })(),
             serializer: SerializerFactory::create(),
+            logger: new NullLogger(),
         );
 
         $response = $application->run(request: new Request(

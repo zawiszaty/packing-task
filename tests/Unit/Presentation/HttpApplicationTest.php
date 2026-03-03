@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Presentation;
 
 use App\Application\Mapper\PackProductsCommandMapper;
+use App\Application\Packing\CalculateBoxSize as CalculateBoxSizeRunner;
+use App\Application\Packing\CalculateBoxSizeDecisionMapper;
+use App\Application\Packing\PackingRefreshDifferenceSpecification;
+use App\Application\Packing\RefreshPackingResult;
+use App\Application\Packing\StorePackingCalculation;
 use App\Application\DTO\PackProductsCommand;
-use App\Application\UseCase\CalculateBoxSize;
 use App\Application\UseCase\FindBoxSize;
 use App\Domain\Entity\PackagingBox;
 use App\Domain\Policy\Refresh\ManualResultsRequireRefreshPolicy;
@@ -38,6 +42,7 @@ final class HttpApplicationTest extends TestCase
             ),
             findBoxSize: $this->buildUseCase(),
             serializer: SerializerFactory::create(),
+            logger: new NullLogger(),
         );
 
         $request = new Request(
@@ -69,6 +74,7 @@ final class HttpApplicationTest extends TestCase
             ),
             findBoxSize: $this->buildUseCase(),
             serializer: SerializerFactory::create(),
+            logger: new NullLogger(),
         );
 
         $request = new Request(
@@ -89,6 +95,7 @@ final class HttpApplicationTest extends TestCase
 
         self::assertSame('500', $firstError['status']);
         self::assertSame('INTERNAL_ERROR', $firstError['code']);
+        self::assertSame('An unexpected error occurred.', $firstError['detail']);
     }
 
     public function testItReturns422WhenUseCaseThrowsInvalidArgumentException(): void
@@ -109,6 +116,7 @@ final class HttpApplicationTest extends TestCase
                 }
             },
             serializer: SerializerFactory::create(),
+            logger: new NullLogger(),
         );
 
         $response = $application->run(new Request(
@@ -125,7 +133,7 @@ final class HttpApplicationTest extends TestCase
         self::assertSame('VALIDATION_ERROR', $firstError['code']);
     }
 
-    private function buildUseCase(): CalculateBoxSize
+    private function buildUseCase(): FindBoxSize
     {
         $circuitBreaker = new StaticCircuitBreaker(available: false);
         $providerPolicy = new ProviderPackingPolicy(
@@ -139,16 +147,39 @@ final class HttpApplicationTest extends TestCase
             manualPolicy: $manualPolicy,
         );
 
-        return new CalculateBoxSize(
-            packingPolicyRegistry: $registry,
-            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
-            packagingRepository: new InMemoryPackagingRepository(boxes: [
+        $logger = new NullLogger();
+        $packagingRepository = new InMemoryPackagingRepository(boxes: [
                 new PackagingBox(id: 1, width: 3.0, height: 3.0, length: 3.0, maxWeight: 20.0),
-            ]),
-            calculationRepository: new InMemoryPackingCalculationRepository(),
+            ]);
+        $calculationRepository = new InMemoryPackingCalculationRepository();
+        $calculateBoxSizeDecision = new CalculateBoxSizeDecisionMapper();
+        $calculateBoxSize = new CalculateBoxSizeRunner(
+            packingPolicyRegistry: $registry,
+            logger: $logger,
+        );
+        $storePackingCalculation = new StorePackingCalculation(
+            calculationRepository: $calculationRepository,
+            logger: $logger,
+        );
+
+        return new FindBoxSize(
+            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
+            packagingRepository: $packagingRepository,
+            calculationRepository: $calculationRepository,
             commandMapper: new PackProductsCommandMapper(),
             requestHashBuilder: new \App\Application\Service\RequestHashBuilder(),
-            logger: new NullLogger(),
+            calculateBoxSize: $calculateBoxSize,
+            calculateBoxSizeDecision: $calculateBoxSizeDecision,
+            storePackingCalculation: $storePackingCalculation,
+            refreshPackingResult: new RefreshPackingResult(
+                packagingRepository: $packagingRepository,
+                calculateBoxSize: $calculateBoxSize,
+                calculateBoxSizeDecision: $calculateBoxSizeDecision,
+                storePackingCalculation: $storePackingCalculation,
+                packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
+                logger: $logger,
+            ),
+            logger: $logger,
         );
     }
 
@@ -166,7 +197,7 @@ final class HttpApplicationTest extends TestCase
 
     /**
      * @param array<string, mixed> $payload
-     * @return array{status: string, code: string, title: string}
+     * @return array{status: string, code: string, title: string, detail: string}
      */
     private function firstError(array $payload): array
     {
@@ -179,15 +210,18 @@ final class HttpApplicationTest extends TestCase
         $status = $first['status'] ?? null;
         $code = $first['code'] ?? null;
         $title = $first['title'] ?? null;
+        $detail = $first['detail'] ?? null;
 
         self::assertIsString($status);
         self::assertIsString($code);
         self::assertIsString($title);
+        self::assertIsString($detail);
 
         return [
             'status' => $status,
             'code' => $code,
             'title' => $title,
+            'detail' => $detail,
         ];
     }
 }

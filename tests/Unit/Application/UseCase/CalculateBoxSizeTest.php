@@ -8,10 +8,16 @@ use App\Application\DTO\CalculationOutcome;
 use App\Application\DTO\PackProduct;
 use App\Application\DTO\PackProductsCommand;
 use App\Application\Mapper\PackProductsCommandMapper;
+use App\Application\Packing\CalculateBoxSize as CalculateBoxSizeRunner;
+use App\Application\Packing\CalculateBoxSizeDecisionMapper;
+use App\Application\Packing\PackingRefreshDifferenceSpecification;
+use App\Application\Packing\RefreshPackingResult;
+use App\Application\Packing\StorePackingCalculation;
 use App\Application\Service\RequestHashBuilder;
-use App\Application\UseCase\CalculateBoxSize;
+use App\Application\UseCase\FindBoxSize;
 use App\Domain\Entity\PackagingBox;
 use App\Domain\Entity\PackingCalculation;
+use App\Domain\Policy\Packing\PackingPolicyRegistry;
 use App\Domain\Policy\Packing\ProviderSelection;
 use App\Domain\Policy\Refresh\ManualResultsRequireRefreshPolicy;
 use App\Domain\Repository\PackagingRepository;
@@ -117,13 +123,10 @@ final class CalculateBoxSizeTest extends TestCase
             manualPolicy: $manualPolicy,
         );
 
-        $calculateBoxSize = new CalculateBoxSize(
+        $calculateBoxSize = $this->createFindBoxSize(
             packingPolicyRegistry: $registry,
-            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
             packagingRepository: new InMemoryPackagingRepository(boxes: [new PackagingBox(id: 1, width: 3.0, height: 3.0, length: 3.0, maxWeight: 20.0)]),
             calculationRepository: new InMemoryPackingCalculationRepository(),
-            commandMapper: $this->commandMapper,
-            requestHashBuilder: $this->requestHashBuilder,
             logger: $logger,
         );
 
@@ -392,6 +395,14 @@ final class CalculateBoxSizeTest extends TestCase
             ],
             $normalizedRequest,
         ));
+
+        $normalizedResult = json_decode($stored->normalizedResult, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($normalizedResult);
+        self::assertSame('BOX_RETURNED', $normalizedResult['outcome'] ?? null);
+        self::assertNull($normalizedResult['reason'] ?? null);
+        self::assertNull($normalizedResult['message'] ?? null);
+        self::assertIsArray($normalizedResult['box'] ?? null);
+        self::assertSame(2, (int) ($normalizedResult['box']['id'] ?? 0));
     }
 
     public function testItStoresRefreshedCalculationWithRefreshTimestamp(): void
@@ -421,6 +432,12 @@ final class CalculateBoxSizeTest extends TestCase
         self::assertSame('provider_3dbinpacking', $stored->providerSource);
         self::assertSame(2, $stored->selectedBoxId);
         self::assertNotNull($stored->refreshedAt);
+
+        $normalizedResult = json_decode($stored->normalizedResult, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($normalizedResult);
+        self::assertSame('BOX_RETURNED', $normalizedResult['outcome'] ?? null);
+        self::assertIsArray($normalizedResult['box'] ?? null);
+        self::assertSame(2, (int) ($normalizedResult['box']['id'] ?? 0));
     }
 
     public function testItRethrowsWhenPolicyFailsAndFailoverPolicyIsMissing(): void
@@ -433,13 +450,10 @@ final class CalculateBoxSizeTest extends TestCase
             ),
             manualPolicy: new ManualPackingPolicy(selector: new SimpleSmallestBoxSelector()),
         );
-        $calculateBoxSize = new CalculateBoxSize(
+        $calculateBoxSize = $this->createFindBoxSize(
             packingPolicyRegistry: $registry,
-            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
             packagingRepository: new InMemoryPackagingRepository(boxes: $this->boxes),
             calculationRepository: new InMemoryPackingCalculationRepository(),
-            commandMapper: $this->commandMapper,
-            requestHashBuilder: $this->requestHashBuilder,
             logger: new NullLogger(),
         );
 
@@ -468,13 +482,10 @@ final class CalculateBoxSizeTest extends TestCase
                 'manual' => $manualPolicy,
             ],
         );
-        $calculateBoxSize = new CalculateBoxSize(
+        $calculateBoxSize = $this->createFindBoxSize(
             packingPolicyRegistry: $registry,
-            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
             packagingRepository: new InMemoryPackagingRepository(boxes: $this->boxes),
             calculationRepository: new InMemoryPackingCalculationRepository(),
-            commandMapper: $this->commandMapper,
-            requestHashBuilder: $this->requestHashBuilder,
             logger: new NullLogger(),
         );
 
@@ -515,13 +526,10 @@ final class CalculateBoxSizeTest extends TestCase
                 'provider' => $policy,
             ],
         );
-        $calculateBoxSize = new CalculateBoxSize(
+        $calculateBoxSize = $this->createFindBoxSize(
             packingPolicyRegistry: $registry,
-            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
             packagingRepository: new InMemoryPackagingRepository(boxes: $this->boxes),
             calculationRepository: new InMemoryPackingCalculationRepository(),
-            commandMapper: $this->commandMapper,
-            requestHashBuilder: $this->requestHashBuilder,
             logger: new NullLogger(),
         );
 
@@ -579,13 +587,10 @@ final class CalculateBoxSizeTest extends TestCase
                 'manual' => $manualPolicy,
             ],
         );
-        $calculateBoxSize = new CalculateBoxSize(
+        $calculateBoxSize = $this->createFindBoxSize(
             packingPolicyRegistry: $registry,
-            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
             packagingRepository: new InMemoryPackagingRepository(boxes: $this->boxes),
             calculationRepository: new InMemoryPackingCalculationRepository(),
-            commandMapper: $this->commandMapper,
-            requestHashBuilder: $this->requestHashBuilder,
             logger: new NullLogger(),
         );
 
@@ -609,7 +614,7 @@ final class CalculateBoxSizeTest extends TestCase
         ?PackagingRepository $packagingRepository = null,
         ?PackingCalculationRepository $calculationRepository = null,
         ?LoggerInterface $logger = null,
-    ): CalculateBoxSize {
+    ): FindBoxSize {
         $circuitBreaker = new StaticCircuitBreaker(available: $providerAvailable);
         $providerPolicy = new ProviderPackingPolicy(
             providerClient: new StubThreeDBinPackingClient(selectedBoxId: $selectedBoxId),
@@ -622,14 +627,48 @@ final class CalculateBoxSizeTest extends TestCase
             manualPolicy: $manualPolicy,
         );
 
-        return new CalculateBoxSize(
+        return $this->createFindBoxSize(
             packingPolicyRegistry: $registry,
-            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
             packagingRepository: $packagingRepository ?? new InMemoryPackagingRepository(boxes: $this->boxes),
             calculationRepository: $calculationRepository ?? new InMemoryPackingCalculationRepository(),
+            logger: $logger ?? new NullLogger(),
+        );
+    }
+
+    private function createFindBoxSize(
+        PackingPolicyRegistry $packingPolicyRegistry,
+        PackagingRepository $packagingRepository,
+        PackingCalculationRepository $calculationRepository,
+        LoggerInterface $logger,
+    ): FindBoxSize {
+        $calculateBoxSizeDecision = new CalculateBoxSizeDecisionMapper();
+        $calculateBoxSize = new CalculateBoxSizeRunner(
+            packingPolicyRegistry: $packingPolicyRegistry,
+            logger: $logger,
+        );
+        $storePackingCalculation = new StorePackingCalculation(
+            calculationRepository: $calculationRepository,
+            logger: $logger,
+        );
+
+        return new FindBoxSize(
+            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
+            packagingRepository: $packagingRepository,
+            calculationRepository: $calculationRepository,
             commandMapper: $this->commandMapper,
             requestHashBuilder: $this->requestHashBuilder,
-            logger: $logger ?? new NullLogger(),
+            calculateBoxSize: $calculateBoxSize,
+            calculateBoxSizeDecision: $calculateBoxSizeDecision,
+            storePackingCalculation: $storePackingCalculation,
+            refreshPackingResult: new RefreshPackingResult(
+                packagingRepository: $packagingRepository,
+                calculateBoxSize: $calculateBoxSize,
+                calculateBoxSizeDecision: $calculateBoxSizeDecision,
+                storePackingCalculation: $storePackingCalculation,
+                packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
+                logger: $logger,
+            ),
+            logger: $logger,
         );
     }
 }

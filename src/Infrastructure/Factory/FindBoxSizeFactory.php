@@ -22,7 +22,7 @@ use App\Infrastructure\Policy\ProviderPackingPolicy;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
-final class CalculateBoxSizeFactory
+final class FindBoxSizeFactory
 {
     public static function create(
         EntityManagerInterface $entityManager,
@@ -45,7 +45,10 @@ final class CalculateBoxSizeFactory
             packingPolicyRegistry: $policyRegistry,
             logger: $logger,
         );
-        $storePackingCalculation = new StorePackingCalculation(calculationRepository: $calculationRepository);
+        $storePackingCalculation = new StorePackingCalculation(
+            calculationRepository: $calculationRepository,
+            logger: $logger,
+        );
         $refreshPackingResult = new RefreshPackingResult(
             packagingRepository: $packagingRepository,
             calculateBoxSize: $calculateBoxSize,

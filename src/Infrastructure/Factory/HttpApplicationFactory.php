@@ -20,8 +20,9 @@ final class HttpApplicationFactory
 
         return new HttpApplication(
             new SymfonyPackRequestResolver($serializer, $validator),
-            CalculateBoxSizeFactory::create($entityManager, $circuitBreaker, $logger, $projectDir),
+            FindBoxSizeFactory::create($entityManager, $circuitBreaker, $logger, $projectDir),
             $serializer,
+            $logger,
         );
     }
 }
