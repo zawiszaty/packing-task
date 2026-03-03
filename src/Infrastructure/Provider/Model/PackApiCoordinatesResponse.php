@@ -13,4 +13,3 @@ final class PackApiCoordinatesResponse
     public ?float $y2 = null;
     public ?float $z2 = null;
 }
-

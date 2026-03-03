@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Application\Packing;
+
+use App\Application\DTO\PackingDecision;
+use App\Domain\Entity\PackingCalculation;
+use App\Domain\Repository\PackingCalculationRepository;
+use App\Domain\ValueObject\PackingRequest;
+
+final class StorePackingCalculation
+{
+    public function __construct(private readonly PackingCalculationRepository $calculationRepository)
+    {
+    }
+
+    public function store(PackingRequest $request, PackingDecision $decision, bool $refreshed = false): void
+    {
+        $entity = new PackingCalculation(
+            id: 0,
+            inputHash: $decision->requestHash,
+            normalizedRequest: json_encode($this->normalizeRequest($request), JSON_THROW_ON_ERROR),
+            normalizedResult: '{}',
+            selectedBoxId: $decision->box?->id,
+            providerSource: $decision->source,
+            createdAt: new \DateTimeImmutable(),
+            refreshedAt: $refreshed ? new \DateTimeImmutable() : null,
+        );
+
+        $this->calculationRepository->save($entity);
+    }
+
+    /**
+     * @return list<array{width: float, height: float, length: float, weight: float}>
+     */
+    private function normalizeRequest(PackingRequest $request): array
+    {
+        return array_map(
+            static fn ($product): array => [
+                'width' => $product->dimensions->width,
+                'height' => $product->dimensions->height,
+                'length' => $product->dimensions->length,
+                'weight' => $product->weight->valueKg,
+            ],
+            $request->products,
+        );
+    }
+}

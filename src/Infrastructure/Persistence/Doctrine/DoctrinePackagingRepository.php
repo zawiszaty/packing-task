@@ -30,4 +30,20 @@ final class DoctrinePackagingRepository implements PackagingRepository
             $entities,
         );
     }
+
+    public function findById(int $boxId): ?PackagingBox
+    {
+        $entity = $this->entityManager->getRepository(Packaging::class)->find($boxId);
+        if (!$entity instanceof Packaging) {
+            return null;
+        }
+
+        return new PackagingBox(
+            id: (int) $entity->getId(),
+            width: $entity->getWidth(),
+            height: $entity->getHeight(),
+            length: $entity->getLength(),
+            maxWeight: $entity->getMaxWeight(),
+        );
+    }
 }

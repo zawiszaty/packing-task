@@ -9,4 +9,3 @@ final class PackApiErrorResponse
     public ?string $level = null;
     public ?string $message = null;
 }
-

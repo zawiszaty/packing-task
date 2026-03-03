@@ -13,4 +13,3 @@ final class PackApiNotPackedItemResponse
     public ?float $d = null;
     public ?float $wg = null;
 }
-

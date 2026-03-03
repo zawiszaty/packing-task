@@ -12,4 +12,6 @@ interface PackagingRepository
      * @return list<PackagingBox>
      */
     public function findAll(): array;
+
+    public function findById(int $boxId): ?PackagingBox;
 }

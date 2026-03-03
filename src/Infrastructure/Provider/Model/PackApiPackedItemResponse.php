@@ -14,4 +14,3 @@ final class PackApiPackedItemResponse
     public ?string $image_sbs = null;
     public ?PackApiCoordinatesResponse $coordinates = null;
 }
-

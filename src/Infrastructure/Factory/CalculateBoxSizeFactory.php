@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Infrastructure\Factory;
 
 use App\Application\Mapper\PackProductsCommandMapper;
-use App\Application\Mapper\StoredCalculationPayloadMapper;
+use App\Application\Packing\CalculateBoxSize;
+use App\Application\Packing\CalculateBoxSizeDecisionMapper;
+use App\Application\Packing\PackingRefreshDifferenceSpecification;
+use App\Application\Packing\RefreshPackingResult;
+use App\Application\Packing\StorePackingCalculation;
 use App\Application\Service\RequestHashBuilder;
-use App\Application\UseCase\CalculateBoxSize;
+use App\Application\UseCase\FindBoxSize;
 use App\Domain\Policy\Refresh\ManualResultsRequireRefreshPolicy;
 use App\Domain\Service\SimpleSmallestBoxSelector;
 use App\Infrastructure\CircuitBreaker\CircuitBreaker;
@@ -25,26 +29,43 @@ final class CalculateBoxSizeFactory
         CircuitBreaker $circuitBreaker,
         LoggerInterface $logger,
         string $projectDir,
-    ): CalculateBoxSize {
+    ): FindBoxSize {
         $providerClient = ThreeDBinPackingClientFactory::create($projectDir, $logger);
         $manualPolicy = new ManualPackingPolicy(new SimpleSmallestBoxSelector());
         $providerPolicy = new ProviderPackingPolicy($providerClient, $circuitBreaker);
-
         $policyRegistry = new CircuitBreakerPackingPolicyRegistry(
             $circuitBreaker,
             $providerPolicy,
             $manualPolicy,
         );
+        $packagingRepository = PackagingRepositoryFactory::create($entityManager);
+        $calculationRepository = new DoctrinePackingCalculationRepository($entityManager);
+        $calculateBoxSizeDecision = new CalculateBoxSizeDecisionMapper();
+        $calculateBoxSize = new CalculateBoxSize(
+            packingPolicyRegistry: $policyRegistry,
+            logger: $logger,
+        );
+        $storePackingCalculation = new StorePackingCalculation(calculationRepository: $calculationRepository);
+        $refreshPackingResult = new RefreshPackingResult(
+            packagingRepository: $packagingRepository,
+            calculateBoxSize: $calculateBoxSize,
+            calculateBoxSizeDecision: $calculateBoxSizeDecision,
+            storePackingCalculation: $storePackingCalculation,
+            packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
+            logger: $logger,
+        );
 
-        return new CalculateBoxSize(
-            $policyRegistry,
-            new ManualResultsRequireRefreshPolicy(),
-            PackagingRepositoryFactory::create($entityManager),
-            new DoctrinePackingCalculationRepository($entityManager),
-            new PackProductsCommandMapper(),
-            new StoredCalculationPayloadMapper(),
-            new RequestHashBuilder(),
-            $logger,
+        return new FindBoxSize(
+            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
+            packagingRepository: $packagingRepository,
+            calculationRepository: $calculationRepository,
+            commandMapper: new PackProductsCommandMapper(),
+            requestHashBuilder: new RequestHashBuilder(),
+            calculateBoxSize: $calculateBoxSize,
+            calculateBoxSizeDecision: $calculateBoxSizeDecision,
+            storePackingCalculation: $storePackingCalculation,
+            refreshPackingResult: $refreshPackingResult,
+            logger: $logger,
         );
     }
 }

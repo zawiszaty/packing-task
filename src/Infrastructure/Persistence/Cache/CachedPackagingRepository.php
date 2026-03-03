@@ -39,6 +39,17 @@ final class CachedPackagingRepository implements PackagingRepository
         return $boxes;
     }
 
+    public function findById(int $boxId): ?PackagingBox
+    {
+        foreach ($this->findAll() as $box) {
+            if ($box->id === $boxId) {
+                return $box;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @param list<PackagingBox> $boxes
      * @return list<array{id: int, width: float, height: float, length: float, maxWeight: float}>

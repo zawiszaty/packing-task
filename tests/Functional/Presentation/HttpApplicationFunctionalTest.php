@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Functional\Presentation;
 
 use App\Application\Mapper\PackProductsCommandMapper;
-use App\Application\Mapper\StoredCalculationPayloadMapper;
 use App\Application\Service\RequestHashBuilder;
 use App\Application\UseCase\CalculateBoxSize;
 use App\Domain\Policy\Refresh\ManualResultsRequireRefreshPolicy;
@@ -56,13 +55,12 @@ final class HttpApplicationFunctionalTest extends MySqlFunctionalTestCase
                 serializer: SerializerFactory::create(),
                 validator: ValidatorFactory::create(),
             ),
-            calculateBoxSize: new CalculateBoxSize(
+            findBoxSize: new CalculateBoxSize(
                 packingPolicyRegistry: $registry,
                 refreshPolicy: new ManualResultsRequireRefreshPolicy(),
                 packagingRepository: new DoctrinePackagingRepository(entityManager: $this->entityManager),
                 calculationRepository: new DoctrinePackingCalculationRepository(entityManager: $this->entityManager),
                 commandMapper: new PackProductsCommandMapper(),
-                storedPayloadMapper: new StoredCalculationPayloadMapper(),
                 requestHashBuilder: new RequestHashBuilder(),
                 logger: new NullLogger(),
             ),

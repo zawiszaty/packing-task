@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Persistence\InMemory;
+namespace Tests\Support\Fake\Infrastructure\Persistence;
 
 use App\Domain\Entity\PackingCalculation;
 use App\Domain\Repository\PackingCalculationRepository;

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Http;
 
 use App\Application\DTO\PackingDecision;
-use App\Application\UseCase\CalculateBoxSize;
+use App\Application\UseCase\FindBoxSize;
 use App\Presentation\Http\DTO\Output\ApiErrorDto;
 use App\Presentation\Http\DTO\Output\ApiResponseDto;
 use App\Presentation\Http\DTO\Output\PackBoxResponseDto;
@@ -23,7 +23,7 @@ final class HttpApplication
 {
     public function __construct(
         private readonly SymfonyPackRequestResolver $requestResolver,
-        private readonly CalculateBoxSize $calculateBoxSize,
+        private readonly FindBoxSize $findBoxSize,
         private readonly SerializerInterface $serializer,
     ) {
     }
@@ -32,7 +32,7 @@ final class HttpApplication
     {
         try {
             $command = $this->requestResolver->resolve($request);
-            $decision = $this->calculateBoxSize->execute($command);
+            $decision = $this->findBoxSize->execute($command);
 
             return $this->jsonResponse($this->toSuccessResponse($decision));
         } catch (RequestValidationException $exception) {
