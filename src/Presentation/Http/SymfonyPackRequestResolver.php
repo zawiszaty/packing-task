@@ -40,80 +40,27 @@ final class SymfonyPackRequestResolver
             ]);
         }
 
-        $violations = array_values(array_filter(
-            $this->collectViolations($this->validator->validate($payload)),
-            static fn (ValidationViolationDto $violation): bool => !str_starts_with($violation->field, 'products['),
-        ));
-        $products = [];
-
-        foreach ($payload->products as $index => $item) {
-            try {
-                $productDto = $this->toProductDto($item);
-            } catch (\InvalidArgumentException $exception) {
-                $violations[] = new ValidationViolationDto(
-                    field: sprintf('products[%d]', $index),
-                    message: $exception->getMessage(),
-                    code: 'INVALID_PRODUCT',
-                );
-                continue;
-            }
-
-            $productViolations = $this->collectViolations(
-                $this->validator->validate($productDto),
-                sprintf('products[%d].', $index),
-            );
-
-            if ($productViolations !== []) {
-                array_push($violations, ...$productViolations);
-                continue;
-            }
-
-            $products[] = new PackProduct(
-                width: $productDto->width,
-                height: $productDto->height,
-                length: $productDto->length,
-                weight: $productDto->weight,
-            );
-        }
+        $violations = $this->collectViolations($this->validator->validate($payload));
 
         if ($violations !== []) {
             throw new RequestValidationException($violations);
         }
 
-        return new PackProductsCommand($products);
-    }
-
-    private function toProductDto(mixed $item): PackProductRequestDto
-    {
-        if ($item instanceof PackProductRequestDto) {
-            if (!$this->isProductFieldInitialized($item, 'width')
-                && !$this->isProductFieldInitialized($item, 'height')
-                && !$this->isProductFieldInitialized($item, 'length')
-                && !$this->isProductFieldInitialized($item, 'weight')
-            ) {
-                throw new \InvalidArgumentException('Each product must be an object with width, height, length and weight.');
+        $products = [];
+        foreach ($payload->products as $item) {
+            if (!$item instanceof PackProductRequestDto || $item->width === null || $item->height === null || $item->length === null || $item->weight === null) {
+                throw new \LogicException('Validated product payload is unexpectedly missing required fields.');
             }
 
-            $dto = new PackProductRequestDto();
-            $dto->width = $this->initializedFloatOrZero($item, 'width');
-            $dto->height = $this->initializedFloatOrZero($item, 'height');
-            $dto->length = $this->initializedFloatOrZero($item, 'length');
-            $dto->weight = $this->initializedFloatOrZero($item, 'weight');
-
-            return $dto;
+            $products[] = new PackProduct(
+                width: $item->width,
+                height: $item->height,
+                length: $item->length,
+                weight: $item->weight,
+            );
         }
 
-        if (is_array($item)) {
-            $dto = new PackProductRequestDto();
-            $dto->width = $this->toFloatOrZero($item['width'] ?? null);
-            $dto->height = $this->toFloatOrZero($item['height'] ?? null);
-            $dto->length = $this->toFloatOrZero($item['length'] ?? null);
-            $dto->weight = $this->toFloatOrZero($item['weight'] ?? null);
-
-            return $dto;
-        }
-
-        throw new \InvalidArgumentException('Each product must be an object with width, height, length and weight.');
+        return new PackProductsCommand($products);
     }
 
     /**
@@ -140,35 +87,4 @@ final class SymfonyPackRequestResolver
         return $items;
     }
 
-    private function toFloatOrZero(mixed $value): float
-    {
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (float) $value;
-        }
-
-        return 0.0;
-    }
-
-    private function initializedFloatOrZero(PackProductRequestDto $dto, string $property): float
-    {
-        if (!$this->isProductFieldInitialized($dto, $property)) {
-            return 0.0;
-        }
-
-        /** @var mixed $value */
-        $value = $dto->{$property};
-
-        return $this->toFloatOrZero($value);
-    }
-
-    private function isProductFieldInitialized(PackProductRequestDto $dto, string $property): bool
-    {
-        $reflectionProperty = new \ReflectionProperty(PackProductRequestDto::class, $property);
-
-        return $reflectionProperty->isInitialized($dto);
-    }
 }

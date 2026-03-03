@@ -8,15 +8,19 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 final class PackProductRequestDto
 {
+    #[Assert\NotNull(message: 'width is required')]
     #[Assert\Positive(message: 'width must be greater than 0')]
-    public float $width;
+    public ?float $width = null;
 
+    #[Assert\NotNull(message: 'height is required')]
     #[Assert\Positive(message: 'height must be greater than 0')]
-    public float $height;
+    public ?float $height = null;
 
+    #[Assert\NotNull(message: 'length is required')]
     #[Assert\Positive(message: 'length must be greater than 0')]
-    public float $length;
+    public ?float $length = null;
 
+    #[Assert\NotNull(message: 'weight is required')]
     #[Assert\Positive(message: 'weight must be greater than 0')]
-    public float $weight;
+    public ?float $weight = null;
 }

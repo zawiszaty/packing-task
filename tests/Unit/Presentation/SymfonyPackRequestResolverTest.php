@@ -55,7 +55,7 @@ final class SymfonyPackRequestResolverTest extends TestCase
             self::fail('Expected validation exception to be thrown.');
         } catch (RequestValidationException $exception) {
             self::assertNotEmpty($exception->violations);
-            self::assertSame('products[0]', $exception->violations[0]->field);
+            self::assertSame('products[0].width', $exception->violations[0]->field);
             self::assertSame('Request validation failed.', $exception->getMessage());
         }
     }
@@ -156,7 +156,7 @@ final class SymfonyPackRequestResolverTest extends TestCase
                 static fn ($violation): string => $violation->field,
                 $exception->violations,
             );
-            self::assertContains('products[0]', $fields);
+            self::assertContains('products[0].width', $fields);
             self::assertContains('products[1].width', $fields);
             self::assertContains('products[1].height', $fields);
             self::assertContains('products[1].length', $fields);
