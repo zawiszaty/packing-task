@@ -47,6 +47,6 @@
         "stan": "phpstan analyse --memory-limit=512M",
         "psalm": "psalm --no-cache",
         "test": "phpunit",
-        "infection": "infection --threads=max --min-msi=0 --min-covered-msi=0"
+        "infection": "infection --threads=max"
     }
 }

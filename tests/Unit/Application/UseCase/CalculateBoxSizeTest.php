@@ -8,7 +8,6 @@ use App\Application\DTO\CalculationOutcome;
 use App\Application\DTO\PackProduct;
 use App\Application\DTO\PackProductsCommand;
 use App\Application\Mapper\PackProductsCommandMapper;
-use App\Application\Mapper\StoredCalculationPayloadMapper;
 use App\Application\Service\RequestHashBuilder;
 use App\Application\UseCase\CalculateBoxSize;
 use App\Domain\Entity\PackagingBox;
@@ -19,8 +18,8 @@ use App\Domain\Repository\PackagingRepository;
 use App\Domain\Repository\PackingCalculationRepository;
 use App\Domain\Service\SimpleSmallestBoxSelector;
 use App\Infrastructure\CircuitBreaker\Simple\StaticCircuitBreaker;
-use App\Infrastructure\Persistence\InMemory\InMemoryPackagingRepository;
-use App\Infrastructure\Persistence\InMemory\InMemoryPackingCalculationRepository;
+use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackagingRepository;
+use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackingCalculationRepository;
 use App\Infrastructure\Policy\CircuitBreakerPackingPolicyRegistry;
 use App\Infrastructure\Policy\ManualPackingPolicy;
 use App\Infrastructure\Policy\ProviderPackingPolicy;
@@ -30,14 +29,12 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Tests\Support\Fake\Domain\Policy\ConfigurablePackingPolicy;
 use Tests\Support\Fake\Domain\Policy\ConfigurablePackingPolicyRegistry;
-use Tests\Support\Fake\Domain\Repository\ConfigurablePackagingRepository;
-use Tests\Support\Fake\Infrastructure\Provider\ConfigurableThreeDBinPackingClient;
 use Tests\Support\Fake\Infrastructure\Logger\InMemoryLogger;
+use Tests\Support\Fake\Infrastructure\Provider\ConfigurableThreeDBinPackingClient;
 
 final class CalculateBoxSizeTest extends TestCase
 {
     private PackProductsCommandMapper $commandMapper;
-    private StoredCalculationPayloadMapper $storedPayloadMapper;
     private RequestHashBuilder $requestHashBuilder;
     private PackProductsCommand $request;
 
@@ -49,7 +46,6 @@ final class CalculateBoxSizeTest extends TestCase
         parent::setUp();
 
         $this->commandMapper = new PackProductsCommandMapper();
-        $this->storedPayloadMapper = new StoredCalculationPayloadMapper();
         $this->requestHashBuilder = new RequestHashBuilder();
         $this->request = $this->request();
         $this->boxes = [
@@ -60,9 +56,11 @@ final class CalculateBoxSizeTest extends TestCase
 
     public function testItFallsBackToManualAndCachesResult(): void
     {
+        $logger = new InMemoryLogger();
         $calculateBoxSize = $this->buildUseCase(
             providerAvailable: false,
             selectedBoxId: null,
+            logger: $logger,
         );
 
         $first = $calculateBoxSize->execute(command: $this->request);
@@ -73,13 +71,21 @@ final class CalculateBoxSizeTest extends TestCase
         self::assertNotNull($first->box);
         self::assertSame($first->requestHash, $second->requestHash);
         self::assertSame('manual', $second->source);
+
+        $records = $logger->recordsBy(level: 'info', message: 'packing.box_returned');
+        self::assertCount(1, $records);
+        self::assertSame($first->requestHash, $records[0]['context']['requestHash']);
+        self::assertSame('manual', $records[0]['context']['source']);
+        self::assertSame(1, $records[0]['context']['boxId']);
     }
 
     public function testItUsesProviderWhenAvailableAndProviderReturnsBox(): void
     {
+        $logger = new InMemoryLogger();
         $calculateBoxSize = $this->buildUseCase(
             providerAvailable: true,
             selectedBoxId: 2,
+            logger: $logger,
         );
 
         $result = $calculateBoxSize->execute(command: $this->request);
@@ -88,11 +94,18 @@ final class CalculateBoxSizeTest extends TestCase
         self::assertSame('provider_3dbinpacking', $result->source);
         self::assertNotNull($result->box);
         self::assertSame(2, $result->box->id);
+
+        $records = $logger->recordsBy(level: 'info', message: 'packing.box_returned');
+        self::assertCount(1, $records);
+        self::assertSame($result->requestHash, $records[0]['context']['requestHash']);
+        self::assertSame('provider_3dbinpacking', $records[0]['context']['source']);
+        self::assertSame(2, $records[0]['context']['boxId']);
     }
 
     public function testItUsesFailoverPolicyFromRegistryWhenProviderThrows(): void
     {
         $circuitBreaker = new StaticCircuitBreaker(available: true);
+        $logger = new InMemoryLogger();
         $providerPolicy = new ProviderPackingPolicy(
             providerClient: new ConfigurableThreeDBinPackingClient(throwMessage: 'provider is down'),
             circuitBreaker: $circuitBreaker,
@@ -110,9 +123,8 @@ final class CalculateBoxSizeTest extends TestCase
             packagingRepository: new InMemoryPackagingRepository(boxes: [new PackagingBox(id: 1, width: 3.0, height: 3.0, length: 3.0, maxWeight: 20.0)]),
             calculationRepository: new InMemoryPackingCalculationRepository(),
             commandMapper: $this->commandMapper,
-            storedPayloadMapper: $this->storedPayloadMapper,
             requestHashBuilder: $this->requestHashBuilder,
-            logger: new NullLogger(),
+            logger: $logger,
         );
 
         $result = $calculateBoxSize->execute(command: $this->request);
@@ -121,9 +133,15 @@ final class CalculateBoxSizeTest extends TestCase
         self::assertSame('manual', $result->source);
         self::assertNotNull($result->box);
         self::assertSame(1, $result->box->id);
+
+        $records = $logger->recordsBy(level: 'error', message: 'packing.policy_failed_using_failover');
+        self::assertCount(1, $records);
+        self::assertSame($result->requestHash, $records[0]['context']['requestHash']);
+        self::assertSame('provider_3dbinpacking', $records[0]['context']['policy']);
+        self::assertSame('manual', $records[0]['context']['failoverPolicy']);
     }
 
-    public function testItReturnsStoredCalculationWithoutRecomputingWhenNoRefreshNeeded(): void
+    public function testItReturnsStoredCalculationBySelectedBoxId(): void
     {
         $requestHash = $this->requestHashBuilder->fromProducts(products: $this->request->products);
         $stored = new PackingCalculation(
@@ -137,15 +155,11 @@ final class CalculateBoxSizeTest extends TestCase
             refreshedAt: null,
         );
 
-        $packagingRepository = new ConfigurablePackagingRepository(
-            throwMessage: 'should not be called',
-        );
         $calculationRepository = new InMemoryPackingCalculationRepository();
         $calculationRepository->save(calculation: $stored);
         $calculateBoxSize = $this->buildUseCase(
             providerAvailable: true,
             selectedBoxId: 1,
-            packagingRepository: $packagingRepository,
             calculationRepository: $calculationRepository,
         );
 
@@ -153,7 +167,6 @@ final class CalculateBoxSizeTest extends TestCase
 
         self::assertSame(CalculationOutcome::BOX_RETURNED, $result->outcome);
         self::assertSame(2, $result->box?->id);
-        self::assertSame(0, $packagingRepository->findAllCalls);
     }
 
     public function testItRefreshesManualStoredCalculationInBackgroundAndServesStoredValue(): void
@@ -186,7 +199,7 @@ final class CalculateBoxSizeTest extends TestCase
         self::assertSame(2, $second->box?->id);
     }
 
-    public function testItReturnsModelErrorWhenStoredPayloadIsInvalid(): void
+    public function testItReturnsNoBoxReturnedWhenStoredCalculationHasNoSelectedBoxId(): void
     {
         $requestHash = $this->requestHashBuilder->fromProducts(products: $this->request->products);
         $stored = new PackingCalculation(
@@ -210,11 +223,11 @@ final class CalculateBoxSizeTest extends TestCase
         $result = $calculateBoxSize->execute(command: $this->request);
 
         self::assertSame(CalculationOutcome::NO_BOX_RETURNED, $result->outcome);
-        self::assertSame('MODEL_ERROR', $result->reason);
-        self::assertSame('Cached result payload is invalid.', $result->message);
+        self::assertSame('NO_SINGLE_BOX_AVAILABLE', $result->reason);
+        self::assertSame('Products cannot be packed into a single configured box.', $result->message);
     }
 
-    public function testItReturnsModelErrorWhenStoredPayloadOutcomeIsUnknown(): void
+    public function testItReturnsModelErrorWhenStoredSelectedBoxIdDoesNotExistInConfiguredBoxes(): void
     {
         $requestHash = $this->requestHashBuilder->fromProducts(products: $this->request->products);
         $stored = new PackingCalculation(
@@ -222,7 +235,7 @@ final class CalculateBoxSizeTest extends TestCase
             inputHash: $requestHash,
             normalizedRequest: '{"products":[]}',
             normalizedResult: '{"outcome":"UNKNOWN_OUTCOME","reason":null,"message":null,"box":null}',
-            selectedBoxId: null,
+            selectedBoxId: 999,
             providerSource: ProviderSelection::PROVIDER_3D_BIN_PACKING->value,
             createdAt: new \DateTimeImmutable(),
             refreshedAt: null,
@@ -248,10 +261,12 @@ final class CalculateBoxSizeTest extends TestCase
             new PackagingBox(1, 1.0, 1.0, 1.0, 1.0),
             new PackagingBox(2, 1.5, 1.5, 1.5, 1.0),
         ];
+        $logger = new InMemoryLogger();
         $calculateBoxSize = $this->buildUseCase(
             providerAvailable: false,
             selectedBoxId: null,
             packagingRepository: new InMemoryPackagingRepository(boxes: $tooSmallBoxes),
+            logger: $logger,
         );
 
         $result = $calculateBoxSize->execute(command: $this->request);
@@ -260,6 +275,11 @@ final class CalculateBoxSizeTest extends TestCase
         self::assertNull($result->box);
         self::assertSame('NO_SINGLE_BOX_AVAILABLE', $result->reason);
         self::assertSame('Products cannot be packed into a single configured box.', $result->message);
+
+        $records = $logger->recordsBy(level: 'info', message: 'packing.no_box_returned');
+        self::assertCount(1, $records);
+        self::assertSame($result->requestHash, $records[0]['context']['requestHash']);
+        self::assertSame('manual', $records[0]['context']['source']);
     }
 
     public function testItRefreshesManualStoredCalculationToNoBoxWhenProviderCannotPack(): void
@@ -299,6 +319,10 @@ final class CalculateBoxSizeTest extends TestCase
 
         $records = $logger->recordsBy(level: 'error', message: 'packing.refresh_result_changed');
         self::assertCount(1, $records);
+        self::assertSame($requestHash, $records[0]['context']['requestHash']);
+        self::assertSame('manual', $records[0]['context']['previousSource']);
+        self::assertSame('provider_3dbinpacking', $records[0]['context']['refreshedSource']);
+        self::assertSame('regressed', $records[0]['context']['difference']);
         self::assertSame(1, $records[0]['context']['previousSelectedBoxId']);
         self::assertNull($records[0]['context']['refreshedSelectedBoxId']);
     }
@@ -330,8 +354,73 @@ final class CalculateBoxSizeTest extends TestCase
 
         $records = $logger->recordsBy(level: 'info', message: 'packing.refresh_result_changed');
         self::assertCount(1, $records);
+        self::assertSame($requestHash, $records[0]['context']['requestHash']);
+        self::assertSame('manual', $records[0]['context']['previousSource']);
+        self::assertSame('provider_3dbinpacking', $records[0]['context']['refreshedSource']);
+        self::assertSame('improved', $records[0]['context']['difference']);
         self::assertNull($records[0]['context']['previousSelectedBoxId']);
         self::assertSame(2, $records[0]['context']['refreshedSelectedBoxId']);
+    }
+
+    public function testItStoresFreshCalculationWithExpectedShape(): void
+    {
+        $calculationRepository = new InMemoryPackingCalculationRepository();
+        $calculateBoxSize = $this->buildUseCase(
+            providerAvailable: true,
+            selectedBoxId: 2,
+            calculationRepository: $calculationRepository,
+        );
+
+        $result = $calculateBoxSize->execute(command: $this->request);
+        $stored = $calculationRepository->findLatestByInputHash($result->requestHash);
+
+        self::assertNotNull($stored);
+        self::assertSame(0, $stored->id);
+        self::assertNull($stored->refreshedAt);
+
+        $normalizedRequest = json_decode($stored->normalizedRequest, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($normalizedRequest);
+        self::assertSame([
+            ['width' => 2.0, 'height' => 2.0, 'length' => 2.0, 'weight' => 1.0],
+            ['width' => 1.0, 'height' => 1.0, 'length' => 1.0, 'weight' => 1.0],
+        ], array_map(
+            static fn (array $item): array => [
+                'width' => (float) $item['width'],
+                'height' => (float) $item['height'],
+                'length' => (float) $item['length'],
+                'weight' => (float) $item['weight'],
+            ],
+            $normalizedRequest,
+        ));
+    }
+
+    public function testItStoresRefreshedCalculationWithRefreshTimestamp(): void
+    {
+        $requestHash = $this->requestHashBuilder->fromProducts(products: $this->request->products);
+        $calculationRepository = new InMemoryPackingCalculationRepository();
+        $calculationRepository->save(new PackingCalculation(
+            id: 1,
+            inputHash: $requestHash,
+            normalizedRequest: '{"products":[]}',
+            normalizedResult: '{"outcome":"BOX_RETURNED","reason":null,"message":null,"box":{"id":1,"width":3,"height":3,"length":3,"maxWeight":20}}',
+            selectedBoxId: 1,
+            providerSource: ProviderSelection::MANUAL->value,
+            createdAt: new \DateTimeImmutable(),
+            refreshedAt: null,
+        ));
+        $calculateBoxSize = $this->buildUseCase(
+            providerAvailable: true,
+            selectedBoxId: 2,
+            calculationRepository: $calculationRepository,
+        );
+
+        $calculateBoxSize->execute(command: $this->request);
+        $stored = $calculationRepository->findLatestByInputHash($requestHash);
+
+        self::assertNotNull($stored);
+        self::assertSame('provider_3dbinpacking', $stored->providerSource);
+        self::assertSame(2, $stored->selectedBoxId);
+        self::assertNotNull($stored->refreshedAt);
     }
 
     public function testItRethrowsWhenPolicyFailsAndFailoverPolicyIsMissing(): void
@@ -350,7 +439,6 @@ final class CalculateBoxSizeTest extends TestCase
             packagingRepository: new InMemoryPackagingRepository(boxes: $this->boxes),
             calculationRepository: new InMemoryPackingCalculationRepository(),
             commandMapper: $this->commandMapper,
-            storedPayloadMapper: $this->storedPayloadMapper,
             requestHashBuilder: $this->requestHashBuilder,
             logger: new NullLogger(),
         );
@@ -386,7 +474,117 @@ final class CalculateBoxSizeTest extends TestCase
             packagingRepository: new InMemoryPackagingRepository(boxes: $this->boxes),
             calculationRepository: new InMemoryPackingCalculationRepository(),
             commandMapper: $this->commandMapper,
-            storedPayloadMapper: $this->storedPayloadMapper,
+            requestHashBuilder: $this->requestHashBuilder,
+            logger: new NullLogger(),
+        );
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Packing policy failover loop detected.');
+
+        $calculateBoxSize->execute(command: $this->request);
+    }
+
+    public function testItReturnsImmediatelyAfterFirstSuccessfulPackCall(): void
+    {
+        $policy = new class () implements \App\Domain\Policy\Packing\PackingPolicy {
+            public int $packCalls = 0;
+
+            public function pack(\App\Domain\ValueObject\PackingRequest $request, array $boxes): ?\App\Domain\Entity\PackagingBox
+            {
+                ++$this->packCalls;
+                if ($this->packCalls >= 2) {
+                    throw new \RuntimeException('Second call should never happen.');
+                }
+
+                return $boxes[0] ?? null;
+            }
+
+            public function source(): string
+            {
+                return 'provider';
+            }
+
+            public function failoverPolicySource(): string
+            {
+                return 'provider';
+            }
+        };
+        $registry = new ConfigurablePackingPolicyRegistry(
+            resolvedSource: 'provider',
+            policiesBySource: [
+                'provider' => $policy,
+            ],
+        );
+        $calculateBoxSize = new CalculateBoxSize(
+            packingPolicyRegistry: $registry,
+            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
+            packagingRepository: new InMemoryPackagingRepository(boxes: $this->boxes),
+            calculationRepository: new InMemoryPackingCalculationRepository(),
+            commandMapper: $this->commandMapper,
+            requestHashBuilder: $this->requestHashBuilder,
+            logger: new NullLogger(),
+        );
+
+        $result = $calculateBoxSize->execute(command: $this->request);
+
+        self::assertSame(CalculationOutcome::BOX_RETURNED, $result->outcome);
+        self::assertSame(1, $policy->packCalls);
+    }
+
+    public function testItDetectsFailoverLoopBeforePoliciesSwitchToSelfFailover(): void
+    {
+        $providerPolicy = new class () implements \App\Domain\Policy\Packing\PackingPolicy {
+            public int $packCalls = 0;
+
+            public function pack(\App\Domain\ValueObject\PackingRequest $request, array $boxes): ?\App\Domain\Entity\PackagingBox
+            {
+                ++$this->packCalls;
+                throw new \RuntimeException('provider blew up');
+            }
+
+            public function source(): string
+            {
+                return 'provider';
+            }
+
+            public function failoverPolicySource(): string
+            {
+                // Mutated loop-detection should not spin forever. After 2 calls we force self-failover to break.
+                return $this->packCalls >= 2 ? 'provider' : 'manual';
+            }
+        };
+        $manualPolicy = new class () implements \App\Domain\Policy\Packing\PackingPolicy {
+            public int $packCalls = 0;
+
+            public function pack(\App\Domain\ValueObject\PackingRequest $request, array $boxes): ?\App\Domain\Entity\PackagingBox
+            {
+                ++$this->packCalls;
+                throw new \RuntimeException('manual blew up');
+            }
+
+            public function source(): string
+            {
+                return 'manual';
+            }
+
+            public function failoverPolicySource(): string
+            {
+                return 'provider';
+            }
+        };
+        $registry = new ConfigurablePackingPolicyRegistry(
+            resolvedSource: 'provider',
+            policiesBySource: [
+                'provider' => $providerPolicy,
+                'manual' => $manualPolicy,
+            ],
+        );
+        $calculateBoxSize = new CalculateBoxSize(
+            packingPolicyRegistry: $registry,
+            refreshPolicy: new ManualResultsRequireRefreshPolicy(),
+            packagingRepository: new InMemoryPackagingRepository(boxes: $this->boxes),
+            calculationRepository: new InMemoryPackingCalculationRepository(),
+            commandMapper: $this->commandMapper,
             requestHashBuilder: $this->requestHashBuilder,
             logger: new NullLogger(),
         );
@@ -430,7 +628,6 @@ final class CalculateBoxSizeTest extends TestCase
             packagingRepository: $packagingRepository ?? new InMemoryPackagingRepository(boxes: $this->boxes),
             calculationRepository: $calculationRepository ?? new InMemoryPackingCalculationRepository(),
             commandMapper: $this->commandMapper,
-            storedPayloadMapper: $this->storedPayloadMapper,
             requestHashBuilder: $this->requestHashBuilder,
             logger: $logger ?? new NullLogger(),
         );

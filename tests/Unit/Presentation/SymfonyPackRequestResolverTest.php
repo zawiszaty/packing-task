@@ -56,6 +56,7 @@ final class SymfonyPackRequestResolverTest extends TestCase
         } catch (RequestValidationException $exception) {
             self::assertNotEmpty($exception->violations);
             self::assertSame('products[0]', $exception->violations[0]->field);
+            self::assertSame('Request validation failed.', $exception->getMessage());
         }
     }
 
@@ -76,6 +77,7 @@ final class SymfonyPackRequestResolverTest extends TestCase
             self::assertSame('products[0].width', $exception->violations[0]->field);
             self::assertSame('products[0].height', $exception->violations[1]->field);
             self::assertSame('products[0].weight', $exception->violations[2]->field);
+            self::assertNotSame('VALIDATION_ERROR', $exception->violations[0]->code);
         }
     }
 
@@ -95,6 +97,7 @@ final class SymfonyPackRequestResolverTest extends TestCase
             self::assertCount(1, $exception->violations);
             self::assertSame('body', $exception->violations[0]->field);
             self::assertSame('MALFORMED_JSON', $exception->violations[0]->code);
+            self::assertSame('Request validation failed.', $exception->getMessage());
         }
     }
 
@@ -113,6 +116,7 @@ final class SymfonyPackRequestResolverTest extends TestCase
         } catch (RequestValidationException $exception) {
             self::assertNotEmpty($exception->violations);
             self::assertSame('products', $exception->violations[0]->field);
+            self::assertSame('Request validation failed.', $exception->getMessage());
         }
     }
 
@@ -131,6 +135,56 @@ final class SymfonyPackRequestResolverTest extends TestCase
         } catch (RequestValidationException $exception) {
             self::assertNotEmpty($exception->violations);
             self::assertSame('products[0].weight', $exception->violations[0]->field);
+            self::assertNotSame('VALIDATION_ERROR', $exception->violations[0]->code);
         }
     }
+
+    public function testItCollectsViolationsForMultipleInvalidProductsWithoutStoppingEarly(): void
+    {
+        $request = new Request(
+            method: 'POST',
+            uri: 'http://localhost/pack',
+            headers: ['Content-Type' => 'application/json'],
+            body: '{"products":[1,{"width":0,"height":0,"length":0,"weight":0}]}',
+        );
+
+        try {
+            $this->requestResolver->resolve(request: $request);
+            self::fail('Expected validation exception to be thrown.');
+        } catch (RequestValidationException $exception) {
+            $fields = array_map(
+                static fn ($violation): string => $violation->field,
+                $exception->violations,
+            );
+            self::assertContains('products[0]', $fields);
+            self::assertContains('products[1].width', $fields);
+            self::assertContains('products[1].height', $fields);
+            self::assertContains('products[1].length', $fields);
+            self::assertContains('products[1].weight', $fields);
+        }
+    }
+
+    public function testItDoesNotConvertPartiallyMissingProductIntoInvalidProductTypeError(): void
+    {
+        $request = new Request(
+            method: 'POST',
+            uri: 'http://localhost/pack',
+            headers: ['Content-Type' => 'application/json'],
+            body: '{"products":[{"width":1.0,"height":1.0}]}',
+        );
+
+        try {
+            $this->requestResolver->resolve(request: $request);
+            self::fail('Expected validation exception to be thrown.');
+        } catch (RequestValidationException $exception) {
+            $fields = array_map(
+                static fn ($violation): string => $violation->field,
+                $exception->violations,
+            );
+            self::assertContains('products[0].length', $fields);
+            self::assertContains('products[0].weight', $fields);
+            self::assertNotContains('products[0]', $fields);
+        }
+    }
+
 }

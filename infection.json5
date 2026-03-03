@@ -1,5 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/infection/infection/0.32.6/resources/schema.json",
+  "minMsi": 80.0,
+  "minCoveredMsi": 80.0,
   "source": {
     "directories": [
       "src"

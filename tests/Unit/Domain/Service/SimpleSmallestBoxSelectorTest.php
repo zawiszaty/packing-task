@@ -91,4 +91,58 @@ final class SimpleSmallestBoxSelectorTest extends TestCase
 
         self::assertNull($this->boxSelector->select(request: $request, boxes: []));
     }
+
+    public function testItAcceptsWhenTotalWeightEqualsMaxWeight(): void
+    {
+        $request = new PackingRequest([
+            new ProductToPack(dimensions: new Dimensions(width: 1.0, height: 1.0, length: 1.0), weight: new Weight(valueKg: 4.0)),
+            new ProductToPack(dimensions: new Dimensions(width: 1.0, height: 1.0, length: 1.0), weight: new Weight(valueKg: 6.0)),
+        ]);
+
+        $selected = $this->boxSelector->select(request: $request, boxes: [
+            new PackagingBox(id: 10, width: 2.0, height: 2.0, length: 2.0, maxWeight: 10.0),
+        ]);
+
+        self::assertNotNull($selected);
+        self::assertSame(10, $selected->id);
+    }
+
+    public function testItRejectsWhenSmallestItemAxisExceedsSmallestBoxAxis(): void
+    {
+        $request = new PackingRequest([
+            new ProductToPack(dimensions: new Dimensions(width: 2.0, height: 2.0, length: 2.0), weight: new Weight(valueKg: 1.0)),
+        ]);
+
+        $selected = $this->boxSelector->select(request: $request, boxes: [
+            new PackagingBox(id: 20, width: 1.0, height: 2.0, length: 2.0, maxWeight: 10.0),
+        ]);
+
+        self::assertNull($selected);
+    }
+
+    public function testItRejectsWhenMiddleItemAxisExceedsMiddleBoxAxis(): void
+    {
+        $request = new PackingRequest([
+            new ProductToPack(dimensions: new Dimensions(width: 1.0, height: 3.0, length: 3.0), weight: new Weight(valueKg: 1.0)),
+        ]);
+
+        $selected = $this->boxSelector->select(request: $request, boxes: [
+            new PackagingBox(id: 30, width: 2.0, height: 2.0, length: 3.0, maxWeight: 10.0),
+        ]);
+
+        self::assertNull($selected);
+    }
+
+    public function testItRejectsWhenSecondSortedAxisDoesNotFitEvenIfFirstAndThirdDo(): void
+    {
+        $request = new PackingRequest([
+            new ProductToPack(dimensions: new Dimensions(width: 1.0, height: 5.0, length: 6.0), weight: new Weight(valueKg: 1.0)),
+        ]);
+
+        $selected = $this->boxSelector->select(request: $request, boxes: [
+            new PackagingBox(id: 40, width: 2.0, height: 4.0, length: 6.0, maxWeight: 10.0),
+        ]);
+
+        self::assertNull($selected);
+    }
 }

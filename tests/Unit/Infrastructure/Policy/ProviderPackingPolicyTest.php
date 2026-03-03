@@ -67,4 +67,22 @@ final class ProviderPackingPolicyTest extends TestCase
         self::assertNull($selected);
         self::assertSame(1, $circuitBreaker->successCalls);
     }
+
+    public function testItReturnsNullWhenProviderReturnsNoBox(): void
+    {
+        $circuitBreaker = new SpyCircuitBreaker();
+        $providerPolicy = new ProviderPackingPolicy(
+            providerClient: new ConfigurableThreeDBinPackingClient(selectedBoxId: null),
+            circuitBreaker: $circuitBreaker,
+        );
+
+        $selected = $providerPolicy->pack(
+            request: new PackingRequest(products: []),
+            boxes: [new PackagingBox(id: 1, width: 1.0, height: 1.0, length: 1.0, maxWeight: 1.0)],
+        );
+
+        self::assertNull($selected);
+        self::assertSame(1, $circuitBreaker->successCalls);
+        self::assertSame(0, $circuitBreaker->failureCalls);
+    }
 }

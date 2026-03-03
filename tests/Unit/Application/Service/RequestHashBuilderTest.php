@@ -54,4 +54,17 @@ final class RequestHashBuilderTest extends TestCase
             $this->requestHashBuilder->fromRawPayload(payload: '{"products":[1]}'),
         );
     }
+
+    public function testItBuildsExpectedCanonicalHashForKnownPayload(): void
+    {
+        $products = [
+            new PackProduct(width: 2.0, height: 1.0, length: 4.0, weight: 3.0),
+            new PackProduct(width: 1.0, height: 1.0, length: 1.0, weight: 1.0),
+        ];
+
+        self::assertSame(
+            'a04db3352aab86fc0046155d90fbf13da29ba5a7',
+            $this->requestHashBuilder->fromProducts(products: $products),
+        );
+    }
 }
