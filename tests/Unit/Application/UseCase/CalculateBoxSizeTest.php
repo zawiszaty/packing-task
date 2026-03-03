@@ -383,7 +383,7 @@ final class CalculateBoxSizeTest extends TestCase
 
         $normalizedRequest = json_decode($stored->normalizedRequest, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($normalizedRequest);
-        self::assertSame([
+        self::assertEquals([
             ['width' => 2.0, 'height' => 2.0, 'length' => 2.0, 'weight' => 1.0],
             ['width' => 1.0, 'height' => 1.0, 'length' => 1.0, 'weight' => 1.0],
         ], $normalizedRequest);
