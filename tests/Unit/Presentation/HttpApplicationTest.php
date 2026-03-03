@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Presentation;
 
+use App\Application\DTO\PackProductsCommand;
 use App\Application\Mapper\PackProductsCommandMapper;
 use App\Application\Packing\CalculateBoxSize as CalculateBoxSizeRunner;
 use App\Application\Packing\CalculateBoxSizeDecisionMapper;
 use App\Application\Packing\PackingRefreshDifferenceSpecification;
 use App\Application\Packing\RefreshPackingResult;
 use App\Application\Packing\StorePackingCalculation;
-use App\Application\DTO\PackProductsCommand;
 use App\Application\UseCase\FindBoxSize;
 use App\Domain\Entity\PackagingBox;
 use App\Domain\Policy\Refresh\ManualResultsRequireRefreshPolicy;
@@ -18,8 +18,6 @@ use App\Domain\Service\SimpleSmallestBoxSelector;
 use App\Infrastructure\CircuitBreaker\Simple\StaticCircuitBreaker;
 use App\Infrastructure\Factory\SerializerFactory;
 use App\Infrastructure\Factory\ValidatorFactory;
-use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackagingRepository;
-use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackingCalculationRepository;
 use App\Infrastructure\Policy\CircuitBreakerPackingPolicyRegistry;
 use App\Infrastructure\Policy\ManualPackingPolicy;
 use App\Infrastructure\Policy\ProviderPackingPolicy;
@@ -29,6 +27,8 @@ use App\Presentation\Http\SymfonyPackRequestResolver;
 use GuzzleHttp\Psr7\Request;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackagingRepository;
+use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackingCalculationRepository;
 use Tests\Support\Fake\Presentation\Serializer\FailingDeserializeSerializer;
 
 final class HttpApplicationTest extends TestCase

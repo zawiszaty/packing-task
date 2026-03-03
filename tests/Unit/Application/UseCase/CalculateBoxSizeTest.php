@@ -24,8 +24,6 @@ use App\Domain\Repository\PackagingRepository;
 use App\Domain\Repository\PackingCalculationRepository;
 use App\Domain\Service\SimpleSmallestBoxSelector;
 use App\Infrastructure\CircuitBreaker\Simple\StaticCircuitBreaker;
-use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackagingRepository;
-use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackingCalculationRepository;
 use App\Infrastructure\Policy\CircuitBreakerPackingPolicyRegistry;
 use App\Infrastructure\Policy\ManualPackingPolicy;
 use App\Infrastructure\Policy\ProviderPackingPolicy;
@@ -36,6 +34,8 @@ use Psr\Log\NullLogger;
 use Tests\Support\Fake\Domain\Policy\ConfigurablePackingPolicy;
 use Tests\Support\Fake\Domain\Policy\ConfigurablePackingPolicyRegistry;
 use Tests\Support\Fake\Infrastructure\Logger\InMemoryLogger;
+use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackagingRepository;
+use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackingCalculationRepository;
 use Tests\Support\Fake\Infrastructure\Provider\ConfigurableThreeDBinPackingClient;
 
 final class CalculateBoxSizeTest extends TestCase
@@ -386,23 +386,16 @@ final class CalculateBoxSizeTest extends TestCase
         self::assertSame([
             ['width' => 2.0, 'height' => 2.0, 'length' => 2.0, 'weight' => 1.0],
             ['width' => 1.0, 'height' => 1.0, 'length' => 1.0, 'weight' => 1.0],
-        ], array_map(
-            static fn (array $item): array => [
-                'width' => (float) $item['width'],
-                'height' => (float) $item['height'],
-                'length' => (float) $item['length'],
-                'weight' => (float) $item['weight'],
-            ],
-            $normalizedRequest,
-        ));
+        ], $normalizedRequest);
 
         $normalizedResult = json_decode($stored->normalizedResult, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($normalizedResult);
         self::assertSame('BOX_RETURNED', $normalizedResult['outcome'] ?? null);
         self::assertNull($normalizedResult['reason'] ?? null);
         self::assertNull($normalizedResult['message'] ?? null);
-        self::assertIsArray($normalizedResult['box'] ?? null);
-        self::assertSame(2, (int) ($normalizedResult['box']['id'] ?? 0));
+        $box = $normalizedResult['box'] ?? null;
+        self::assertIsArray($box);
+        self::assertSame(2, $box['id'] ?? null);
     }
 
     public function testItStoresRefreshedCalculationWithRefreshTimestamp(): void
@@ -436,8 +429,9 @@ final class CalculateBoxSizeTest extends TestCase
         $normalizedResult = json_decode($stored->normalizedResult, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($normalizedResult);
         self::assertSame('BOX_RETURNED', $normalizedResult['outcome'] ?? null);
-        self::assertIsArray($normalizedResult['box'] ?? null);
-        self::assertSame(2, (int) ($normalizedResult['box']['id'] ?? 0));
+        $box = $normalizedResult['box'] ?? null;
+        self::assertIsArray($box);
+        self::assertSame(2, $box['id'] ?? null);
     }
 
     public function testItRethrowsWhenPolicyFailsAndFailoverPolicyIsMissing(): void

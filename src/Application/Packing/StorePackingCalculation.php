@@ -15,18 +15,24 @@ final class StorePackingCalculation
     public function __construct(
         private readonly PackingCalculationRepository $calculationRepository,
         private readonly LoggerInterface $logger,
-    )
-    {
+    ) {
     }
 
     public function store(PackingRequest $request, PackingDecision $decision, bool $refreshed = false): void
     {
+        $normalizedResult = json_encode($this->normalizeResult($decision), JSON_THROW_ON_ERROR);
+        $this->logger->info('packing.calculation_normalized_result_prepared', [
+            'requestHash' => $decision->requestHash,
+            'source' => $decision->source,
+            'selectedBoxId' => $decision->box?->id,
+            'normalizedResult' => $normalizedResult,
+        ]);
 
         $entity = new PackingCalculation(
             id: 0,
             inputHash: $decision->requestHash,
             normalizedRequest: json_encode($this->normalizeRequest($request), JSON_THROW_ON_ERROR),
-            normalizedResult: json_encode($this->normalizeResult($decision), JSON_THROW_ON_ERROR),
+            normalizedResult: $normalizedResult,
             selectedBoxId: $decision->box?->id,
             providerSource: $decision->source,
             createdAt: new \DateTimeImmutable(),
