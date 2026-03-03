@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Packing;
+namespace App\Application\Service\Packing;
 
 use App\Domain\Entity\PackingCalculation;
 use App\Domain\Repository\PackagingRepository;

@@ -44,7 +44,7 @@
     "scripts": {
         "cs": "PHP_CS_FIXER_IGNORE_ENV=1 php-cs-fixer fix --dry-run --diff",
         "cs:fix": "PHP_CS_FIXER_IGNORE_ENV=1 php-cs-fixer fix",
-        "stan": "phpstan analyse --memory-limit=512M",
+        "stan": "phpstan analyse --memory-limit=512M --debug",
         "psalm": "psalm --no-cache",
         "test": "phpunit",
         "infection": "infection --threads=max"

@@ -6,11 +6,11 @@ namespace Tests\Unit\Presentation;
 
 use App\Application\DTO\PackProductsCommand;
 use App\Application\Mapper\PackProductsCommandMapper;
-use App\Application\Packing\CalculateBoxSize as CalculateBoxSizeRunner;
-use App\Application\Packing\CalculateBoxSizeDecisionMapper;
-use App\Application\Packing\PackingRefreshDifferenceSpecification;
-use App\Application\Packing\RefreshPackingResult;
-use App\Application\Packing\StorePackingCalculation;
+use App\Application\Service\Packing\CalculateBoxSize as CalculateBoxSizeRunner;
+use App\Application\Service\Packing\CalculateBoxSizeDecisionMapper;
+use App\Application\Service\Packing\PackingRefreshDifferenceSpecification;
+use App\Application\Service\Packing\RefreshPackingResult;
+use App\Application\Service\Packing\StorePackingCalculation;
 use App\Application\UseCase\FindBoxSize;
 use App\Domain\Entity\PackagingBox;
 use App\Domain\Policy\Refresh\ManualResultsRequireRefreshPolicy;

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Packing;
 
-use App\Application\Packing\PackingRefreshDifferenceSpecification;
-use App\Application\Packing\PackingResultDifference;
+use App\Application\Service\Packing\PackingRefreshDifferenceSpecification;
+use App\Application\Service\Packing\PackingResultDifference;
 use PHPUnit\Framework\TestCase;
 
 final class PackingRefreshDifferenceSpecificationTest extends TestCase
