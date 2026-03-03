@@ -25,6 +25,7 @@ use App\Infrastructure\Provider\Stub\StubThreeDBinPackingClient;
 use App\Presentation\Http\HttpApplication;
 use App\Presentation\Http\SymfonyPackRequestResolver;
 use GuzzleHttp\Psr7\Request;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Tests\Support\Fake\Infrastructure\Persistence\InMemoryPackagingRepository;
@@ -35,7 +36,7 @@ final class HttpApplicationTest extends TestCase
 {
     public function testItReturns422WhenValidationFails(): void
     {
-        $application = new HttpApplication(
+        $httpApplication = new HttpApplication(
             requestResolver: new SymfonyPackRequestResolver(
                 serializer: SerializerFactory::create(),
                 validator: ValidatorFactory::create(),
@@ -52,7 +53,7 @@ final class HttpApplicationTest extends TestCase
             body: '{"products":[]}',
         );
 
-        $response = $application->run($request);
+        $response = $httpApplication->run($request);
         $payload = $this->decodePayload($response);
 
         self::assertSame(422, $response->getStatusCode());
@@ -67,7 +68,7 @@ final class HttpApplicationTest extends TestCase
 
     public function testItReturns500WhenUnexpectedExceptionOccurs(): void
     {
-        $application = new HttpApplication(
+        $httpApplication = new HttpApplication(
             requestResolver: new SymfonyPackRequestResolver(
                 serializer: new FailingDeserializeSerializer(),
                 validator: ValidatorFactory::create(),
@@ -84,7 +85,7 @@ final class HttpApplicationTest extends TestCase
             body: '{"products":[{"width":1,"height":1,"length":1,"weight":1}]}',
         );
 
-        $response = $application->run($request);
+        $response = $httpApplication->run($request);
         $payload = $this->decodePayload($response);
 
         self::assertSame(500, $response->getStatusCode());
@@ -100,7 +101,7 @@ final class HttpApplicationTest extends TestCase
 
     public function testItReturns422WhenUseCaseThrowsInvalidArgumentException(): void
     {
-        $application = new HttpApplication(
+        $httpApplication = new HttpApplication(
             requestResolver: new SymfonyPackRequestResolver(
                 serializer: SerializerFactory::create(),
                 validator: ValidatorFactory::create(),
@@ -112,14 +113,14 @@ final class HttpApplicationTest extends TestCase
 
                 public function execute(PackProductsCommand $command): \App\Application\DTO\PackingDecision
                 {
-                    throw new \InvalidArgumentException('synthetic validation error');
+                    throw new InvalidArgumentException('synthetic validation error');
                 }
             },
             serializer: SerializerFactory::create(),
             logger: new NullLogger(),
         );
 
-        $response = $application->run(new Request(
+        $response = $httpApplication->run(new Request(
             method: 'POST',
             uri: 'http://localhost/pack',
             headers: ['Content-Type' => 'application/json'],

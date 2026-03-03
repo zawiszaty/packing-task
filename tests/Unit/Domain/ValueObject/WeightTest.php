@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain\ValueObject;
 
 use App\Domain\ValueObject\Weight;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 final class WeightTest extends TestCase
@@ -18,7 +19,7 @@ final class WeightTest extends TestCase
 
     public function testItRejectsZeroOrNegativeWeight(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Weight must be a finite number greater than 0.');
 
         new Weight(valueKg: 0.0);
@@ -26,7 +27,7 @@ final class WeightTest extends TestCase
 
     public function testItRejectsNonFiniteWeight(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         new Weight(valueKg: INF);
     }

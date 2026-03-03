@@ -9,6 +9,7 @@ use App\Application\DTO\PackingDecision;
 use App\Application\DTO\SelectedBox;
 use App\Application\DTO\StoredCalculationPayload;
 use App\Domain\Entity\PackagingBox;
+use ValueError;
 
 final class CalculateBoxSizeDecisionMapper
 {
@@ -63,7 +64,7 @@ final class CalculateBoxSizeDecisionMapper
     {
         try {
             $outcome = CalculationOutcome::from($storedPayload->outcome);
-        } catch (\ValueError) {
+        } catch (ValueError) {
             return $this->modelError(source: $source, requestHash: $requestHash);
         }
 

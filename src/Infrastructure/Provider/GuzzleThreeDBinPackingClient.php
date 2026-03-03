@@ -10,6 +10,7 @@ use App\Infrastructure\Provider\Model\PackResult;
 use App\Infrastructure\Provider\Payload\PackIntoManyRequestPayload;
 use GuzzleHttp\ClientInterface;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 
@@ -39,11 +40,11 @@ final class GuzzleThreeDBinPackingClient implements ThreeDBinPackingClient
                 format: 'json',
             );
         } catch (ExceptionInterface $exception) {
-            throw new \RuntimeException('Invalid JSON response from 3DBinPacking API.');
+            throw new RuntimeException('Invalid JSON response from 3DBinPacking API.');
         }
 
         if (!$decoded instanceof PackApiResponse) {
-            throw new \RuntimeException('Invalid JSON response from 3DBinPacking API.');
+            throw new RuntimeException('Invalid JSON response from 3DBinPacking API.');
         }
 
         return $this->toPackResult($decoded);
@@ -75,7 +76,7 @@ final class GuzzleThreeDBinPackingClient implements ThreeDBinPackingClient
             ]);
 
             $details = $errorMessages !== [] ? ' Errors: ' . implode(' | ', $errorMessages) : '';
-            throw new \RuntimeException('3DBinPacking API returned non-success status.' . $details);
+            throw new RuntimeException('3DBinPacking API returned non-success status.' . $details);
         }
 
         if ($errors !== []) {
@@ -93,7 +94,7 @@ final class GuzzleThreeDBinPackingClient implements ThreeDBinPackingClient
             ]);
 
             $details = $errorMessages !== [] ? ' Errors: ' . implode(' | ', $errorMessages) : '';
-            throw new \RuntimeException('3DBinPacking API returned errors.' . $details);
+            throw new RuntimeException('3DBinPacking API returned errors.' . $details);
         }
 
         if (count($unpackedItems) > 0 || count($binsPacked) !== 1) {

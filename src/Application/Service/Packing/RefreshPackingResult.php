@@ -8,6 +8,7 @@ use App\Domain\Entity\PackingCalculation;
 use App\Domain\Repository\PackagingRepository;
 use App\Domain\ValueObject\PackingRequest;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 final class RefreshPackingResult
 {
@@ -71,7 +72,7 @@ final class RefreshPackingResult
                 decision: $refreshedDecision,
                 refreshed: true,
             );
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->logger->error('packing.refresh_failed', [
                 'requestHash' => $requestHash,
                 'exceptionClass' => $exception::class,

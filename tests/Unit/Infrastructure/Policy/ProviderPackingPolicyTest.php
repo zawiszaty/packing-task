@@ -8,6 +8,7 @@ use App\Domain\Entity\PackagingBox;
 use App\Domain\ValueObject\PackingRequest;
 use App\Infrastructure\Policy\ProviderPackingPolicy;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Tests\Support\Fake\Infrastructure\CircuitBreaker\SpyCircuitBreaker;
 use Tests\Support\Fake\Infrastructure\Provider\ConfigurableThreeDBinPackingClient;
 
@@ -40,7 +41,7 @@ final class ProviderPackingPolicyTest extends TestCase
             circuitBreaker: $circuitBreaker,
         );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('provider failed');
 
         try {

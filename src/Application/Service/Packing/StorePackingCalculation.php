@@ -8,6 +8,7 @@ use App\Application\DTO\PackingDecision;
 use App\Domain\Entity\PackingCalculation;
 use App\Domain\Repository\PackingCalculationRepository;
 use App\Domain\ValueObject\PackingRequest;
+use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 final class StorePackingCalculation
@@ -35,8 +36,8 @@ final class StorePackingCalculation
             normalizedResult: $normalizedResult,
             selectedBoxId: $decision->box?->id,
             providerSource: $decision->source,
-            createdAt: new \DateTimeImmutable(),
-            refreshedAt: $refreshed ? new \DateTimeImmutable() : null,
+            createdAt: new DateTimeImmutable(),
+            refreshedAt: $refreshed ? new DateTimeImmutable() : null,
         );
 
         $this->calculationRepository->save($entity);

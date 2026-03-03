@@ -7,6 +7,7 @@ namespace Tests\Support\Fake\Infrastructure\Provider;
 use App\Domain\ValueObject\PackingRequest;
 use App\Infrastructure\Provider\Model\PackResult;
 use App\Infrastructure\Provider\ThreeDBinPackingClient;
+use RuntimeException;
 
 final class ConfigurableThreeDBinPackingClient implements ThreeDBinPackingClient
 {
@@ -19,7 +20,7 @@ final class ConfigurableThreeDBinPackingClient implements ThreeDBinPackingClient
     public function pack(PackingRequest $request, array $boxes): PackResult
     {
         if ($this->throwMessage !== null) {
-            throw new \RuntimeException($this->throwMessage);
+            throw new RuntimeException($this->throwMessage);
         }
 
         return new PackResult(selectedBoxId: $this->selectedBoxId);

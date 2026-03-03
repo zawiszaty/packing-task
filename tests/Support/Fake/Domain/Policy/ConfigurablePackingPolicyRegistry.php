@@ -7,6 +7,7 @@ namespace Tests\Support\Fake\Domain\Policy;
 use App\Domain\Policy\Packing\PackingPolicy;
 use App\Domain\Policy\Packing\PackingPolicyRegistry;
 use App\Domain\ValueObject\PackingRequest;
+use RuntimeException;
 
 final class ConfigurablePackingPolicyRegistry implements PackingPolicyRegistry
 {
@@ -23,7 +24,7 @@ final class ConfigurablePackingPolicyRegistry implements PackingPolicyRegistry
     {
         $policy = $this->policiesBySource[$this->resolvedSource] ?? null;
         if ($policy === null) {
-            throw new \RuntimeException(sprintf('Missing resolved policy "%s".', $this->resolvedSource));
+            throw new RuntimeException(sprintf('Missing resolved policy "%s".', $this->resolvedSource));
         }
 
         return $policy;

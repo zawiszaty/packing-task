@@ -10,6 +10,7 @@ use App\Presentation\Http\DTO\Input\PackProductRequestDto;
 use App\Presentation\Http\DTO\Input\PackRequestDto;
 use App\Presentation\Http\DTO\Output\ValidationViolationDto;
 use App\Presentation\Http\Exception\RequestValidationException;
+use LogicException;
 use Psr\Http\Message\RequestInterface;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Serializer\SerializerInterface;
@@ -49,7 +50,7 @@ final class SymfonyPackRequestResolver
         $products = [];
         foreach ($payload->products as $item) {
             if (!$item instanceof PackProductRequestDto || $item->width === null || $item->height === null || $item->length === null || $item->weight === null) {
-                throw new \LogicException('Validated product payload is unexpectedly missing required fields.');
+                throw new LogicException('Validated product payload is unexpectedly missing required fields.');
             }
 
             $products[] = new PackProduct(

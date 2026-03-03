@@ -11,6 +11,7 @@ use App\Domain\ValueObject\PackingRequest;
 use App\Domain\ValueObject\ProductToPack;
 use App\Domain\ValueObject\Weight;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Tests\Support\Fake\Domain\Policy\ConfigurablePackingPolicy;
 use Tests\Support\Fake\Domain\Policy\ConfigurablePackingPolicyRegistry;
 use Tests\Support\Fake\Infrastructure\Logger\InMemoryLogger;
@@ -94,7 +95,7 @@ final class CalculateBoxSizeTest extends TestCase
             logger: new InMemoryLogger(),
         );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('provider down');
 
         $service->calculate(
@@ -126,7 +127,7 @@ final class CalculateBoxSizeTest extends TestCase
             logger: new InMemoryLogger(),
         );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Packing policy failover loop detected.');
 
         $service->calculate(

@@ -8,6 +8,7 @@ use App\Domain\Entity\PackagingBox;
 use App\Domain\Policy\Packing\PackingPolicy;
 use App\Domain\Policy\Packing\ProviderSelection;
 use App\Domain\ValueObject\PackingRequest;
+use RuntimeException;
 
 final class ConfigurablePackingPolicy implements PackingPolicy
 {
@@ -21,7 +22,7 @@ final class ConfigurablePackingPolicy implements PackingPolicy
     public function pack(PackingRequest $request, array $boxes): ?PackagingBox
     {
         if ($this->throwMessage !== null) {
-            throw new \RuntimeException($this->throwMessage);
+            throw new RuntimeException($this->throwMessage);
         }
 
         return $boxes[0] ?? null;

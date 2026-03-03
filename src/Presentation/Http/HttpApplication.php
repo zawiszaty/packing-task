@@ -15,10 +15,12 @@ use App\Presentation\Http\DTO\Output\PackMetaResponseDto;
 use App\Presentation\Http\DTO\Output\ValidationViolationDto;
 use App\Presentation\Http\Exception\RequestValidationException;
 use GuzzleHttp\Psr7\Response;
+use InvalidArgumentException;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Serializer\SerializerInterface;
+use Throwable;
 
 final class HttpApplication
 {
@@ -52,7 +54,7 @@ final class HttpApplication
                 ),
                 422,
             );
-        } catch (\InvalidArgumentException $exception) {
+        } catch (InvalidArgumentException $exception) {
             return $this->jsonResponse(
                 new ApiResponseDto(
                     errors: [
@@ -66,7 +68,7 @@ final class HttpApplication
                 ),
                 422,
             );
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->logger->error('http.unhandled_exception', [
                 'method' => $request->getMethod(),
                 'uri' => (string) $request->getUri(),

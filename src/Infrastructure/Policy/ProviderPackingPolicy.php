@@ -10,6 +10,7 @@ use App\Domain\Policy\Packing\ProviderSelection;
 use App\Domain\ValueObject\PackingRequest;
 use App\Infrastructure\CircuitBreaker\CircuitBreaker;
 use App\Infrastructure\Provider\ThreeDBinPackingClient;
+use Throwable;
 
 final class ProviderPackingPolicy implements PackingPolicy
 {
@@ -26,7 +27,7 @@ final class ProviderPackingPolicy implements PackingPolicy
         try {
             $result = $this->providerClient->pack($request, $boxes);
             $this->circuitBreaker->success(self::SERVICE_NAME);
-        } catch (\Throwable $throwable) {
+        } catch (Throwable $throwable) {
             $this->circuitBreaker->failure(self::SERVICE_NAME);
             throw $throwable;
         }

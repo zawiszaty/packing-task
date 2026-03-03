@@ -8,6 +8,7 @@ use App\Domain\Entity\PackingCalculation;
 use App\Domain\Policy\Packing\ProviderSelection;
 use App\Domain\Policy\Refresh\ManualResultsRequireRefreshPolicy;
 use App\Domain\Policy\Refresh\RefreshDecision;
+use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
 final class ManualResultsRequireRefreshPolicyTest extends TestCase
@@ -22,7 +23,7 @@ final class ManualResultsRequireRefreshPolicyTest extends TestCase
             normalizedResult: '{}',
             selectedBoxId: null,
             providerSource: ProviderSelection::MANUAL->value,
-            createdAt: new \DateTimeImmutable(),
+            createdAt: new DateTimeImmutable(),
             refreshedAt: null,
         );
 
@@ -39,7 +40,7 @@ final class ManualResultsRequireRefreshPolicyTest extends TestCase
             normalizedResult: '{}',
             selectedBoxId: 10,
             providerSource: ProviderSelection::PROVIDER_3D_BIN_PACKING->value,
-            createdAt: new \DateTimeImmutable(),
+            createdAt: new DateTimeImmutable(),
             refreshedAt: null,
         );
 

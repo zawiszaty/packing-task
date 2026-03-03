@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Persistence\Doctrine\Entity;
 
+use DateTimeImmutable;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -34,10 +35,10 @@ class PackingCalculation
     private string $providerSource;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private \DateTimeImmutable $createdAt;
+    private DateTimeImmutable $createdAt;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
-    private ?\DateTimeImmutable $refreshedAt;
+    private ?DateTimeImmutable $refreshedAt;
 
     public function __construct(
         string $inputHash,
@@ -45,8 +46,8 @@ class PackingCalculation
         string $normalizedResult,
         ?int $selectedBoxId,
         string $providerSource,
-        \DateTimeImmutable $createdAt,
-        ?\DateTimeImmutable $refreshedAt,
+        DateTimeImmutable $createdAt,
+        ?DateTimeImmutable $refreshedAt,
     ) {
         $this->inputHash = $inputHash;
         $this->normalizedRequest = $normalizedRequest;
@@ -87,12 +88,12 @@ class PackingCalculation
         return $this->providerSource;
     }
 
-    public function getCreatedAt(): \DateTimeImmutable
+    public function getCreatedAt(): DateTimeImmutable
     {
         return $this->createdAt;
     }
 
-    public function getRefreshedAt(): ?\DateTimeImmutable
+    public function getRefreshedAt(): ?DateTimeImmutable
     {
         return $this->refreshedAt;
     }

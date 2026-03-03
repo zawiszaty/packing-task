@@ -8,6 +8,8 @@ use App\Domain\Entity\PackagingBox;
 use App\Domain\Policy\Packing\PackingPolicyRegistry;
 use App\Domain\ValueObject\PackingRequest;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
+use Throwable;
 
 final class CalculateBoxSize
 {
@@ -36,7 +38,7 @@ final class CalculateBoxSize
                     selectedBox: $policy->pack($request, $boxes),
                     source: $policySource,
                 );
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 $nextSource = $policy->failoverPolicySource();
                 if ($nextSource === $policySource) {
                     throw $exception;
@@ -48,7 +50,7 @@ final class CalculateBoxSize
                 }
 
                 if (isset($visitedSources[$nextPolicy->source()])) {
-                    throw new \RuntimeException('Packing policy failover loop detected.', 0, $exception);
+                    throw new RuntimeException('Packing policy failover loop detected.', 0, $exception);
                 }
 
                 $this->logger->error('packing.policy_failed_using_failover', [

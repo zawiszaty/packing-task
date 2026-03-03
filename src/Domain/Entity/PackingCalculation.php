@@ -6,6 +6,7 @@ namespace App\Domain\Entity;
 
 use App\Domain\Policy\Refresh\RefreshDecision;
 use App\Domain\Policy\Refresh\RequiresRefreshPolicy;
+use DateTimeImmutable;
 
 final readonly class PackingCalculation
 {
@@ -16,8 +17,8 @@ final readonly class PackingCalculation
         public string $normalizedResult,
         public ?int $selectedBoxId,
         public string $providerSource,
-        public \DateTimeImmutable $createdAt,
-        public ?\DateTimeImmutable $refreshedAt,
+        public DateTimeImmutable $createdAt,
+        public ?DateTimeImmutable $refreshedAt,
     ) {
     }
 

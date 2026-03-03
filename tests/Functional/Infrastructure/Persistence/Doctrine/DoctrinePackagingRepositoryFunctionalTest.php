@@ -10,13 +10,22 @@ use Tests\Functional\Support\MySqlFunctionalTestCase;
 
 final class DoctrinePackagingRepositoryFunctionalTest extends MySqlFunctionalTestCase
 {
+    private DoctrinePackagingRepository $packagingRepository;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->packagingRepository = new DoctrinePackagingRepository($this->entityManager);
+    }
+
     public function testItLoadsAllBoxesFromMySql(): void
     {
         $this->entityManager->persist(new Packaging(2.2, 3.3, 4.4, 9.9));
         $this->entityManager->persist(new Packaging(5.5, 6.6, 7.7, 8.8));
         $this->entityManager->flush();
 
-        $boxes = (new DoctrinePackagingRepository($this->entityManager))->findAll();
+        $boxes = $this->packagingRepository->findAll();
 
         self::assertCount(2, $boxes);
         self::assertSame(2.2, $boxes[0]->width);

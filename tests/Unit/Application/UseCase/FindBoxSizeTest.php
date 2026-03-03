@@ -28,9 +28,11 @@ use App\Infrastructure\Policy\CircuitBreakerPackingPolicyRegistry;
 use App\Infrastructure\Policy\ManualPackingPolicy;
 use App\Infrastructure\Policy\ProviderPackingPolicy;
 use App\Infrastructure\Provider\Stub\StubThreeDBinPackingClient;
+use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use Tests\Support\Fake\Domain\Policy\ConfigurablePackingPolicy;
 use Tests\Support\Fake\Domain\Policy\ConfigurablePackingPolicyRegistry;
 use Tests\Support\Fake\Infrastructure\Logger\InMemoryLogger;
@@ -154,7 +156,7 @@ final class FindBoxSizeTest extends TestCase
             normalizedResult: '{"outcome":"BOX_RETURNED","reason":null,"message":null,"box":{"id":2,"width":5,"height":5,"length":5,"maxWeight":20}}',
             selectedBoxId: 2,
             providerSource: ProviderSelection::PROVIDER_3D_BIN_PACKING->value,
-            createdAt: new \DateTimeImmutable(),
+            createdAt: new DateTimeImmutable(),
             refreshedAt: null,
         );
 
@@ -182,7 +184,7 @@ final class FindBoxSizeTest extends TestCase
             normalizedResult: '{"outcome":"BOX_RETURNED","reason":null,"message":null,"box":{"id":1,"width":3,"height":3,"length":3,"maxWeight":20}}',
             selectedBoxId: 1,
             providerSource: ProviderSelection::MANUAL->value,
-            createdAt: new \DateTimeImmutable(),
+            createdAt: new DateTimeImmutable(),
             refreshedAt: null,
         );
         $calculationRepository = new InMemoryPackingCalculationRepository();
@@ -212,7 +214,7 @@ final class FindBoxSizeTest extends TestCase
             normalizedResult: '{"outcome":"BROKEN"',
             selectedBoxId: null,
             providerSource: ProviderSelection::PROVIDER_3D_BIN_PACKING->value,
-            createdAt: new \DateTimeImmutable(),
+            createdAt: new DateTimeImmutable(),
             refreshedAt: null,
         );
         $calculationRepository = new InMemoryPackingCalculationRepository();
@@ -240,7 +242,7 @@ final class FindBoxSizeTest extends TestCase
             normalizedResult: '{"outcome":"UNKNOWN_OUTCOME","reason":null,"message":null,"box":null}',
             selectedBoxId: 999,
             providerSource: ProviderSelection::PROVIDER_3D_BIN_PACKING->value,
-            createdAt: new \DateTimeImmutable(),
+            createdAt: new DateTimeImmutable(),
             refreshedAt: null,
         );
         $calculationRepository = new InMemoryPackingCalculationRepository();
@@ -296,7 +298,7 @@ final class FindBoxSizeTest extends TestCase
             normalizedResult: '{"outcome":"BOX_RETURNED","reason":null,"message":null,"box":{"id":1,"width":3,"height":3,"length":3,"maxWeight":20}}',
             selectedBoxId: 1,
             providerSource: ProviderSelection::MANUAL->value,
-            createdAt: new \DateTimeImmutable(),
+            createdAt: new DateTimeImmutable(),
             refreshedAt: null,
         );
         $calculationRepository = new InMemoryPackingCalculationRepository();
@@ -341,7 +343,7 @@ final class FindBoxSizeTest extends TestCase
             normalizedResult: '{"outcome":"NO_BOX_RETURNED","reason":"NO_SINGLE_BOX_AVAILABLE","message":"Products cannot be packed into a single configured box.","box":null}',
             selectedBoxId: null,
             providerSource: ProviderSelection::MANUAL->value,
-            createdAt: new \DateTimeImmutable(),
+            createdAt: new DateTimeImmutable(),
             refreshedAt: null,
         );
         $calculationRepository = new InMemoryPackingCalculationRepository();
@@ -409,7 +411,7 @@ final class FindBoxSizeTest extends TestCase
             normalizedResult: '{"outcome":"BOX_RETURNED","reason":null,"message":null,"box":{"id":1,"width":3,"height":3,"length":3,"maxWeight":20}}',
             selectedBoxId: 1,
             providerSource: ProviderSelection::MANUAL->value,
-            createdAt: new \DateTimeImmutable(),
+            createdAt: new DateTimeImmutable(),
             refreshedAt: null,
         ));
         $calculateBoxSize = $this->buildUseCase(
@@ -451,7 +453,7 @@ final class FindBoxSizeTest extends TestCase
             logger: new NullLogger(),
         );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('provider blew up');
 
         $calculateBoxSize->execute(command: $this->request);
@@ -483,7 +485,7 @@ final class FindBoxSizeTest extends TestCase
             logger: new NullLogger(),
         );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Packing policy failover loop detected.');
 
         $calculateBoxSize->execute(command: $this->request);
@@ -494,11 +496,11 @@ final class FindBoxSizeTest extends TestCase
         $policy = new class () implements \App\Domain\Policy\Packing\PackingPolicy {
             public int $packCalls = 0;
 
-            public function pack(\App\Domain\ValueObject\PackingRequest $request, array $boxes): ?\App\Domain\Entity\PackagingBox
+            public function pack(\App\Domain\ValueObject\PackingRequest $request, array $boxes): ?PackagingBox
             {
                 ++$this->packCalls;
                 if ($this->packCalls >= 2) {
-                    throw new \RuntimeException('Second call should never happen.');
+                    throw new RuntimeException('Second call should never happen.');
                 }
 
                 return $boxes[0] ?? null;
@@ -538,10 +540,10 @@ final class FindBoxSizeTest extends TestCase
         $providerPolicy = new class () implements \App\Domain\Policy\Packing\PackingPolicy {
             public int $packCalls = 0;
 
-            public function pack(\App\Domain\ValueObject\PackingRequest $request, array $boxes): ?\App\Domain\Entity\PackagingBox
+            public function pack(\App\Domain\ValueObject\PackingRequest $request, array $boxes): ?PackagingBox
             {
                 ++$this->packCalls;
-                throw new \RuntimeException('provider blew up');
+                throw new RuntimeException('provider blew up');
             }
 
             public function source(): string
@@ -558,10 +560,10 @@ final class FindBoxSizeTest extends TestCase
         $manualPolicy = new class () implements \App\Domain\Policy\Packing\PackingPolicy {
             public int $packCalls = 0;
 
-            public function pack(\App\Domain\ValueObject\PackingRequest $request, array $boxes): ?\App\Domain\Entity\PackagingBox
+            public function pack(\App\Domain\ValueObject\PackingRequest $request, array $boxes): ?PackagingBox
             {
                 ++$this->packCalls;
-                throw new \RuntimeException('manual blew up');
+                throw new RuntimeException('manual blew up');
             }
 
             public function source(): string
@@ -588,7 +590,7 @@ final class FindBoxSizeTest extends TestCase
             logger: new NullLogger(),
         );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Packing policy failover loop detected.');
 
         $calculateBoxSize->execute(command: $this->request);

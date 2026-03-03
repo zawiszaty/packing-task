@@ -33,6 +33,8 @@ use Tests\Functional\Support\MySqlFunctionalTestCase;
 
 final class HttpApplicationFunctionalTest extends MySqlFunctionalTestCase
 {
+    private HttpApplication $httpApplication;
+
     public function testItReturnsBoxAndPersistsCalculationInMySql(): void
     {
         $smallBox = new Packaging(2.0, 2.0, 2.0, 10.0);
@@ -55,50 +57,9 @@ final class HttpApplicationFunctionalTest extends MySqlFunctionalTestCase
             manualPolicy: $manualPolicy,
         );
 
-        $application = new HttpApplication(
-            requestResolver: new SymfonyPackRequestResolver(
-                serializer: SerializerFactory::create(),
-                validator: ValidatorFactory::create(),
-            ),
-            findBoxSize: (function () use ($registry): FindBoxSize {
-                $logger = new NullLogger();
-                $packagingRepository = new DoctrinePackagingRepository(entityManager: $this->entityManager);
-                $calculationRepository = new DoctrinePackingCalculationRepository(entityManager: $this->entityManager);
-                $calculateBoxSizeDecision = new CalculateBoxSizeDecisionMapper();
-                $calculateBoxSize = new CalculateBoxSizeRunner(
-                    packingPolicyRegistry: $registry,
-                    logger: $logger,
-                );
-                $storePackingCalculation = new StorePackingCalculation(
-                    calculationRepository: $calculationRepository,
-                    logger: $logger,
-                );
+        $this->httpApplication = $this->createHttpApplication($registry);
 
-                return new FindBoxSize(
-                    refreshPolicy: new ManualResultsRequireRefreshPolicy(),
-                    packagingRepository: $packagingRepository,
-                    calculationRepository: $calculationRepository,
-                    commandMapper: new PackProductsCommandMapper(),
-                    requestHashBuilder: new RequestHashBuilder(),
-                    calculateBoxSize: $calculateBoxSize,
-                    calculateBoxSizeDecision: $calculateBoxSizeDecision,
-                    storePackingCalculation: $storePackingCalculation,
-                    refreshPackingResult: new RefreshPackingResult(
-                        packagingRepository: $packagingRepository,
-                        calculateBoxSize: $calculateBoxSize,
-                        calculateBoxSizeDecision: $calculateBoxSizeDecision,
-                        storePackingCalculation: $storePackingCalculation,
-                        packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
-                        logger: $logger,
-                    ),
-                    logger: $logger,
-                );
-            })(),
-            serializer: SerializerFactory::create(),
-            logger: new NullLogger(),
-        );
-
-        $response = $application->run(request: new Request(
+        $response = $this->httpApplication->run(request: new Request(
             method: 'POST',
             uri: 'http://localhost/pack',
             headers: ['Content-Type' => 'application/json'],
@@ -130,6 +91,50 @@ final class HttpApplicationFunctionalTest extends MySqlFunctionalTestCase
         self::assertNotNull($saved);
         self::assertSame('manual', $saved->providerSource);
         self::assertSame($smallBoxId, $saved->selectedBoxId);
+    }
+
+    private function createHttpApplication(CircuitBreakerPackingPolicyRegistry $registry): HttpApplication
+    {
+        $logger = new NullLogger();
+        $packagingRepository = new DoctrinePackagingRepository(entityManager: $this->entityManager);
+        $calculationRepository = new DoctrinePackingCalculationRepository(entityManager: $this->entityManager);
+        $calculateBoxSizeDecision = new CalculateBoxSizeDecisionMapper();
+        $calculateBoxSize = new CalculateBoxSizeRunner(
+            packingPolicyRegistry: $registry,
+            logger: $logger,
+        );
+        $storePackingCalculation = new StorePackingCalculation(
+            calculationRepository: $calculationRepository,
+            logger: $logger,
+        );
+
+        return new HttpApplication(
+            requestResolver: new SymfonyPackRequestResolver(
+                serializer: SerializerFactory::create(),
+                validator: ValidatorFactory::create(),
+            ),
+            findBoxSize: new FindBoxSize(
+                refreshPolicy: new ManualResultsRequireRefreshPolicy(),
+                packagingRepository: $packagingRepository,
+                calculationRepository: $calculationRepository,
+                commandMapper: new PackProductsCommandMapper(),
+                requestHashBuilder: new RequestHashBuilder(),
+                calculateBoxSize: $calculateBoxSize,
+                calculateBoxSizeDecision: $calculateBoxSizeDecision,
+                storePackingCalculation: $storePackingCalculation,
+                refreshPackingResult: new RefreshPackingResult(
+                    packagingRepository: $packagingRepository,
+                    calculateBoxSize: $calculateBoxSize,
+                    calculateBoxSizeDecision: $calculateBoxSizeDecision,
+                    storePackingCalculation: $storePackingCalculation,
+                    packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
+                    logger: $logger,
+                ),
+                logger: $logger,
+            ),
+            serializer: SerializerFactory::create(),
+            logger: $logger,
+        );
     }
 
     /**

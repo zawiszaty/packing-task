@@ -7,6 +7,7 @@ namespace App\Infrastructure\CircuitBreaker;
 use Ackintosh\Ganesha;
 use Ackintosh\Ganesha\Builder;
 use Ackintosh\Ganesha\Storage\Adapter\Apcu;
+use InvalidArgumentException;
 
 final class GaneshaApcuCircuitBreaker implements CircuitBreaker
 {
@@ -19,16 +20,16 @@ final class GaneshaApcuCircuitBreaker implements CircuitBreaker
         int $timeWindow = 30,
     ) {
         if ($failureRateThreshold < 1 || $failureRateThreshold > 100) {
-            throw new \InvalidArgumentException('failureRateThreshold must be between 1 and 100.');
+            throw new InvalidArgumentException('failureRateThreshold must be between 1 and 100.');
         }
         if ($minimumRequests < 1) {
-            throw new \InvalidArgumentException('minimumRequests must be greater than 0.');
+            throw new InvalidArgumentException('minimumRequests must be greater than 0.');
         }
         if ($intervalToHalfOpen < 1) {
-            throw new \InvalidArgumentException('intervalToHalfOpen must be greater than 0.');
+            throw new InvalidArgumentException('intervalToHalfOpen must be greater than 0.');
         }
         if ($timeWindow < 1) {
-            throw new \InvalidArgumentException('timeWindow must be greater than 0.');
+            throw new InvalidArgumentException('timeWindow must be greater than 0.');
         }
 
         $this->ganesha = Builder::withRateStrategy()
