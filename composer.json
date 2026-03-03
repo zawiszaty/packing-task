@@ -1,7 +1,7 @@
 {
     "name": "shipmonk/packing",
     "description": "Testing day application stub",
-    "version": "1.0.0",
+    "license": "proprietary",
     "require": {
         "ext-pdo": "*",
         "ext-json": "*",
