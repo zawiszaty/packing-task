@@ -56,6 +56,9 @@ jobs:
           name: vendor-php85
           path: vendor
 
+      - name: Restore executable permissions for vendor binaries
+        run: find vendor/bin -type f -exec chmod +x {} +
+
       - name: Run PHPStan
         run: composer stan
 
@@ -80,6 +83,9 @@ jobs:
           name: vendor-php85
           path: vendor
 
+      - name: Restore executable permissions for vendor binaries
+        run: find vendor/bin -type f -exec chmod +x {} +
+
       - name: Run CS check
         run: composer cs
 
@@ -103,6 +109,9 @@ jobs:
         with:
           name: vendor-php85
           path: vendor
+
+      - name: Restore executable permissions for vendor binaries
+        run: find vendor/bin -type f -exec chmod +x {} +
 
       - name: Run Psalm
         run: composer psalm
@@ -140,6 +149,9 @@ jobs:
         with:
           name: vendor-php85
           path: vendor
+
+      - name: Restore executable permissions for vendor binaries
+        run: find vendor/bin -type f -exec chmod +x {} +
 
       - name: Map MySQL hostname expected by app
         run: echo "127.0.0.1 shipmonk-packing-mysql" | sudo tee -a /etc/hosts
@@ -192,6 +204,9 @@ jobs:
         with:
           name: vendor-php85
           path: vendor
+
+      - name: Restore executable permissions for vendor binaries
+        run: find vendor/bin -type f -exec chmod +x {} +
 
       - name: Map MySQL hostname expected by app
         run: echo "127.0.0.1 shipmonk-packing-mysql" | sudo tee -a /etc/hosts
