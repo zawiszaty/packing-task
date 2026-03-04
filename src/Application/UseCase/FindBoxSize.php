@@ -42,10 +42,14 @@ class FindBoxSize
 
         if ($latestCalculation !== null) {
             if ($latestCalculation->requiresRefresh($this->refreshPolicy)) {
-                $this->refreshPackingResult->refresh(
+                $refreshedDecision = $this->refreshPackingResult->refresh(
                     request: $request,
                     latestCalculation: $latestCalculation,
                 );
+
+                if ($refreshedDecision !== null) {
+                    return $refreshedDecision;
+                }
             }
 
             return $this->fromStoredCalculation(

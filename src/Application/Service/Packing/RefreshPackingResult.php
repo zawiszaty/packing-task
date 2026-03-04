@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Service\Packing;
 
+use App\Application\DTO\PackingDecision;
 use App\Domain\Entity\PackingCalculation;
 use App\Domain\Repository\PackagingRepository;
 use App\Domain\ValueObject\PackingRequest;
@@ -22,7 +23,7 @@ final class RefreshPackingResult
     ) {
     }
 
-    public function refresh(PackingRequest $request, PackingCalculation $latestCalculation): void
+    public function refresh(PackingRequest $request, PackingCalculation $latestCalculation): ?PackingDecision
     {
         $requestHash = $latestCalculation->inputHash;
 
@@ -72,12 +73,16 @@ final class RefreshPackingResult
                 decision: $refreshedDecision,
                 refreshed: true,
             );
+
+            return $refreshedDecision;
         } catch (Throwable $exception) {
             $this->logger->error('packing.refresh_failed', [
                 'requestHash' => $requestHash,
                 'exceptionClass' => $exception::class,
                 'message' => $exception->getMessage(),
             ]);
+
+            return null;
         }
     }
 }

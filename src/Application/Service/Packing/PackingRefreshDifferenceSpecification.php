@@ -16,7 +16,7 @@ final class PackingRefreshDifferenceSpecification
             return PackingResultDifference::IMPROVED;
         }
 
-        if ($previousSelectedBoxId !== null && $refreshedSelectedBoxId === null) {
+        if ($previousSelectedBoxId !== null && $refreshedSelectedBoxId === null) { // In Real system we should also check the size of the boxes
             return PackingResultDifference::REGRESSED;
         }
 

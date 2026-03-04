@@ -174,7 +174,7 @@ final class FindBoxSizeTest extends TestCase
         self::assertSame(2, $result->box?->id);
     }
 
-    public function testItRefreshesManualStoredCalculationInBackgroundAndServesStoredValue(): void
+    public function testItRefreshesManualStoredCalculationAndReturnsRefreshedValueImmediately(): void
     {
         $requestHash = $this->requestHashBuilder->fromProducts(products: $this->request->products);
         $stored = new PackingCalculation(
@@ -198,8 +198,8 @@ final class FindBoxSizeTest extends TestCase
         $first = $calculateBoxSize->execute(command: $this->request);
         $second = $calculateBoxSize->execute(command: $this->request);
 
-        self::assertSame('manual', $first->source);
-        self::assertSame(1, $first->box?->id);
+        self::assertSame('provider_3dbinpacking', $first->source);
+        self::assertSame(2, $first->box?->id);
         self::assertSame('provider_3dbinpacking', $second->source);
         self::assertSame(2, $second->box?->id);
     }
@@ -313,9 +313,10 @@ final class FindBoxSizeTest extends TestCase
         $first = $calculateBoxSize->execute(command: $this->request);
         $second = $calculateBoxSize->execute(command: $this->request);
 
-        self::assertSame(CalculationOutcome::BOX_RETURNED, $first->outcome);
-        self::assertSame('manual', $first->source);
-        self::assertSame(1, $first->box?->id);
+        self::assertSame(CalculationOutcome::NO_BOX_RETURNED, $first->outcome);
+        self::assertSame('provider_3dbinpacking', $first->source);
+        self::assertNull($first->box);
+        self::assertSame('NO_SINGLE_BOX_AVAILABLE', $first->reason);
 
         self::assertSame(CalculationOutcome::NO_BOX_RETURNED, $second->outcome);
         self::assertSame('provider_3dbinpacking', $second->source);
