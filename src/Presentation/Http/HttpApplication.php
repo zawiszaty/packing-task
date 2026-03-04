@@ -15,7 +15,6 @@ use App\Presentation\Http\DTO\Output\PackMetaResponseDto;
 use App\Presentation\Http\DTO\Output\ValidationViolationDto;
 use App\Presentation\Http\Exception\RequestValidationException;
 use GuzzleHttp\Psr7\Response;
-use InvalidArgumentException;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
@@ -51,20 +50,6 @@ final class HttpApplication
                         ),
                         $exception->violations,
                     ),
-                ),
-                422,
-            );
-        } catch (InvalidArgumentException $exception) {
-            return $this->jsonResponse(
-                new ApiResponseDto(
-                    errors: [
-                        new ApiErrorDto(
-                            status: '422',
-                            code: 'VALIDATION_ERROR',
-                            title: 'Invalid request body',
-                            detail: $exception->getMessage(),
-                        ),
-                    ],
                 ),
                 422,
             );

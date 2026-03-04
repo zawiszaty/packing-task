@@ -99,7 +99,7 @@ final class HttpApplicationTest extends TestCase
         self::assertSame('An unexpected error occurred.', $firstError['detail']);
     }
 
-    public function testItReturns422WhenUseCaseThrowsInvalidArgumentException(): void
+    public function testItReturns500WhenUseCaseThrowsInvalidArgumentException(): void
     {
         $httpApplication = new HttpApplication(
             requestResolver: new SymfonyPackRequestResolver(
@@ -129,9 +129,10 @@ final class HttpApplicationTest extends TestCase
         $payload = $this->decodePayload($response);
         $firstError = $this->firstError($payload);
 
-        self::assertSame(422, $response->getStatusCode());
+        self::assertSame(500, $response->getStatusCode());
         self::assertSame('application/json', $response->getHeaderLine('Content-Type'));
-        self::assertSame('VALIDATION_ERROR', $firstError['code']);
+        self::assertSame('INTERNAL_ERROR', $firstError['code']);
+        self::assertSame('An unexpected error occurred.', $firstError['detail']);
     }
 
     private function buildUseCase(): FindBoxSize
