@@ -13,6 +13,7 @@ use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Serializer\SerializerInterface;
+use Throwable;
 
 final class GuzzleThreeDBinPackingClient implements ThreeDBinPackingClient
 {
@@ -29,22 +30,55 @@ final class GuzzleThreeDBinPackingClient implements ThreeDBinPackingClient
     public function pack(PackingRequest $request, array $boxes): PackResult
     {
         $payload = PackIntoManyRequestPayload::fromDomain($this->username, $this->apiKey, $request, $boxes);
-        $response = $this->httpClient->request('POST', $this->endpoint, [
-            'json' => $payload->toArray(),
-        ]);
+        try {
+            $response = $this->httpClient->request('POST', $this->endpoint, [
+                'json' => $payload->toArray(),
+            ]);
+        } catch (Throwable $exception) {
+            $this->logger->error('provider.3dbinpacking.request_failed', [
+                'endpoint' => $this->endpoint,
+                'exceptionClass' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw new RuntimeException('Failed calling 3DBinPacking API.', 0, $exception);
+        }
+
+        $responseBody = (string) $response->getBody();
 
         try {
             $decoded = $this->serializer->deserialize(
-                data: (string) $response->getBody(),
+                data: $responseBody,
                 type: PackApiResponse::class,
                 format: 'json',
             );
         } catch (ExceptionInterface $exception) {
-            throw new RuntimeException('Invalid JSON response from 3DBinPacking API.');
+            $this->logger->error('provider.3dbinpacking.invalid_json', [
+                'endpoint' => $this->endpoint,
+                'statusCode' => $response->getStatusCode(),
+                'bodyPreview' => $this->preview($responseBody),
+                'exceptionClass' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw new RuntimeException('Invalid JSON response from 3DBinPacking API.', 0, $exception);
         }
 
         if (!$decoded instanceof PackApiResponse) {
-            throw new RuntimeException('Invalid JSON response from 3DBinPacking API.');
+            $decodedType = is_object($decoded) ? $decoded::class : gettype($decoded);
+
+            $this->logger->error('provider.3dbinpacking.invalid_payload_type', [
+                'endpoint' => $this->endpoint,
+                'statusCode' => $response->getStatusCode(),
+                'decodedType' => $decodedType,
+                'bodyPreview' => $this->preview($responseBody),
+            ]);
+
+            throw new RuntimeException(sprintf(
+                'Invalid JSON response from 3DBinPacking API: expected %s, got %s.',
+                PackApiResponse::class,
+                $decodedType,
+            ));
         }
 
         return $this->toPackResult($decoded);
@@ -111,5 +145,14 @@ final class GuzzleThreeDBinPackingClient implements ThreeDBinPackingClient
         }
 
         return new PackResult(null);
+    }
+
+    private function preview(string $value, int $limit = 500): string
+    {
+        if (strlen($value) <= $limit) {
+            return $value;
+        }
+
+        return substr($value, 0, $limit) . '...';
     }
 }
