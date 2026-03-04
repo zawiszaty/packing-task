@@ -13,12 +13,12 @@ use Throwable;
 final class RefreshPackingResult
 {
     public function __construct(
-        private readonly PackagingRepository $packagingRepository,
-        private readonly CalculateBoxSize $calculateBoxSize,
-        private readonly CalculateBoxSizeDecisionMapper $calculateBoxSizeDecision,
-        private readonly StorePackingCalculation $storePackingCalculation,
+        private readonly PackagingRepository                   $packagingRepository,
+        private readonly CalculateBoxSize                      $calculateBoxSize,
+        private readonly CalculateBoxSizeDecisionMapper        $calculateBoxSizeDecisionMapper,
+        private readonly StorePackingCalculation               $storePackingCalculation,
         private readonly PackingRefreshDifferenceSpecification $packingRefreshDifferenceSpecification,
-        private readonly LoggerInterface $logger,
+        private readonly LoggerInterface                       $logger,
     ) {
     }
 
@@ -36,11 +36,11 @@ final class RefreshPackingResult
             );
 
             $refreshedDecision = $calculatedBoxSizeResult->selectedBox === null
-                ? $this->calculateBoxSizeDecision->noBoxReturned(
+                ? $this->calculateBoxSizeDecisionMapper->noBoxReturned(
                     source: $calculatedBoxSizeResult->source,
                     requestHash: $requestHash,
                 )
-                : $this->calculateBoxSizeDecision->boxReturned(
+                : $this->calculateBoxSizeDecisionMapper->boxReturned(
                     box: $calculatedBoxSizeResult->selectedBox,
                     source: $calculatedBoxSizeResult->source,
                     requestHash: $requestHash,

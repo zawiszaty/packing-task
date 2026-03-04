@@ -52,7 +52,7 @@ final class FindBoxSizeFactory
         $refreshPackingResult = new RefreshPackingResult(
             packagingRepository: $packagingRepository,
             calculateBoxSize: $calculateBoxSize,
-            calculateBoxSizeDecision: $calculateBoxSizeDecision,
+            calculateBoxSizeDecisionMapper: $calculateBoxSizeDecision,
             storePackingCalculation: $storePackingCalculation,
             packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
             logger: $logger,

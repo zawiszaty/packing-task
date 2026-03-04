@@ -6,7 +6,7 @@ namespace App\Application\Service\Packing;
 
 use App\Domain\Entity\PackagingBox;
 
-final readonly class CalculatedBoxSizeResult
+final readonly class CalculatedBoxSize
 {
     public function __construct(
         public ?PackagingBox $selectedBox,
