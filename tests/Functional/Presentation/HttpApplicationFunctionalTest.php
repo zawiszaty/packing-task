@@ -63,7 +63,7 @@ final class HttpApplicationFunctionalTest extends MySqlFunctionalTestCase
             method: 'POST',
             uri: 'http://localhost/pack',
             headers: ['Content-Type' => 'application/json'],
-            body: '{"products":[{"width":1.0,"height":1.0,"length":1.0,"weight":1.0}]}',
+            body: '{"products":[{"id":1,"width":1.0,"height":1.0,"length":1.0,"weight":1.0}]}',
         ));
 
         $payload = $this->decodePayload($response);
@@ -125,7 +125,7 @@ final class HttpApplicationFunctionalTest extends MySqlFunctionalTestCase
                 refreshPackingResult: new RefreshPackingResult(
                     packagingRepository: $packagingRepository,
                     calculateBoxSize: $calculateBoxSize,
-                    calculateBoxSizeDecision: $calculateBoxSizeDecision,
+                    calculateBoxSizeDecisionMapper: $calculateBoxSizeDecision,
                     storePackingCalculation: $storePackingCalculation,
                     packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
                     logger: $logger,

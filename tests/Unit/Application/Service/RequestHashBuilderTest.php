@@ -22,12 +22,12 @@ final class RequestHashBuilderTest extends TestCase
     public function testItBuildsOrderInsensitiveHashForProducts(): void
     {
         $firstOrder = [
-            new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0),
-            new PackProduct(width: 2.0, height: 3.0, length: 4.0, weight: 5.0),
+            new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0, id: 10),
+            new PackProduct(width: 2.0, height: 3.0, length: 4.0, weight: 5.0, id: 20),
         ];
         $secondOrder = [
-            new PackProduct(width: 2.0, height: 3.0, length: 4.0, weight: 5.0),
-            new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0),
+            new PackProduct(width: 2.0, height: 3.0, length: 4.0, weight: 5.0, id: 20),
+            new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0, id: 10),
         ];
 
         self::assertSame(
@@ -36,15 +36,36 @@ final class RequestHashBuilderTest extends TestCase
         );
     }
 
-    public function testItReturnsDifferentHashWhenProductPayloadDiffers(): void
+    public function testItReturnsDifferentHashWhenProductIdDiffers(): void
     {
-        $base = [new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0)];
-        $changed = [new PackProduct(width: 1.1, height: 2.0, length: 3.0, weight: 4.0)];
+        $base = [new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0, id: 1)];
+        $changed = [new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0, id: 2)];
 
         self::assertNotSame(
             $this->requestHashBuilder->fromProducts(products: $base),
             $this->requestHashBuilder->fromProducts(products: $changed),
         );
+    }
+
+    public function testItUsesProductIdInsteadOfDimensionsWhenIdIsProvided(): void
+    {
+        $base = [new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0, id: 42)];
+        $changedDimensions = [new PackProduct(width: 9.0, height: 9.0, length: 9.0, weight: 9.0, id: 42)];
+
+        self::assertSame(
+            $this->requestHashBuilder->fromProducts(products: $base),
+            $this->requestHashBuilder->fromProducts(products: $changedDimensions),
+        );
+    }
+
+    public function testItThrowsWhenProductIdIsMissing(): void
+    {
+        $products = [new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0)];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Product id is required to build request hash.');
+
+        $this->requestHashBuilder->fromProducts(products: $products);
     }
 
     public function testItBuildsStableRawPayloadHash(): void
@@ -58,12 +79,12 @@ final class RequestHashBuilderTest extends TestCase
     public function testItBuildsExpectedCanonicalHashForKnownPayload(): void
     {
         $products = [
-            new PackProduct(width: 2.0, height: 1.0, length: 4.0, weight: 3.0),
-            new PackProduct(width: 1.0, height: 1.0, length: 1.0, weight: 1.0),
+            new PackProduct(width: 2.0, height: 1.0, length: 4.0, weight: 3.0, id: 2),
+            new PackProduct(width: 1.0, height: 1.0, length: 1.0, weight: 1.0, id: 1),
         ];
 
         self::assertSame(
-            'a04db3352aab86fc0046155d90fbf13da29ba5a7',
+            '988eb963c08ce9fb21cc9c5d388961ba2ba496e8',
             $this->requestHashBuilder->fromProducts(products: $products),
         );
     }

@@ -599,8 +599,8 @@ final class FindBoxSizeTest extends TestCase
     private function request(): PackProductsCommand
     {
         return new PackProductsCommand([
-            new PackProduct(width: 2.0, height: 2.0, length: 2.0, weight: 1.0),
-            new PackProduct(width: 1.0, height: 1.0, length: 1.0, weight: 1.0),
+            new PackProduct(width: 2.0, height: 2.0, length: 2.0, weight: 1.0, id: 1),
+            new PackProduct(width: 1.0, height: 1.0, length: 1.0, weight: 1.0, id: 2),
         ]);
     }
 
@@ -659,7 +659,7 @@ final class FindBoxSizeTest extends TestCase
             refreshPackingResult: new RefreshPackingResult(
                 packagingRepository: $packagingRepository,
                 calculateBoxSize: $calculateBoxSize,
-                calculateBoxSizeDecision: $calculateBoxSizeDecision,
+                calculateBoxSizeDecisionMapper: $calculateBoxSizeDecision,
                 storePackingCalculation: $storePackingCalculation,
                 packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
                 logger: $logger,

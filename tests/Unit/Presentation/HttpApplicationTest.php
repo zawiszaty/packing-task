@@ -82,7 +82,7 @@ final class HttpApplicationTest extends TestCase
             method: 'POST',
             uri: 'http://localhost/pack',
             headers: ['Content-Type' => 'application/json'],
-            body: '{"products":[{"width":1,"height":1,"length":1,"weight":1}]}',
+            body: '{"products":[{"id":1,"width":1,"height":1,"length":1,"weight":1}]}',
         );
 
         $response = $httpApplication->run($request);
@@ -124,7 +124,7 @@ final class HttpApplicationTest extends TestCase
             method: 'POST',
             uri: 'http://localhost/pack',
             headers: ['Content-Type' => 'application/json'],
-            body: '{"products":[{"width":1,"height":1,"length":1,"weight":1}]}',
+            body: '{"products":[{"id":1,"width":1,"height":1,"length":1,"weight":1}]}',
         ));
         $payload = $this->decodePayload($response);
         $firstError = $this->firstError($payload);
@@ -175,7 +175,7 @@ final class HttpApplicationTest extends TestCase
             refreshPackingResult: new RefreshPackingResult(
                 packagingRepository: $packagingRepository,
                 calculateBoxSize: $calculateBoxSize,
-                calculateBoxSizeDecision: $calculateBoxSizeDecision,
+                calculateBoxSizeDecisionMapper: $calculateBoxSizeDecision,
                 storePackingCalculation: $storePackingCalculation,
                 packingRefreshDifferenceSpecification: new PackingRefreshDifferenceSpecification(),
                 logger: $logger,

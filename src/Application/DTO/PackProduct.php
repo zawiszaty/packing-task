@@ -11,6 +11,7 @@ final readonly class PackProduct
         public float $height,
         public float $length,
         public float $weight,
+        public ?int $id = null,
     ) {
     }
 }

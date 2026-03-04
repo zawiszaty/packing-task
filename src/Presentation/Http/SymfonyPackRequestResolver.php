@@ -58,6 +58,7 @@ final class SymfonyPackRequestResolver
                 height: $item->height,
                 length: $item->length,
                 weight: $item->weight,
+                id: $item->id,
             );
         }
 

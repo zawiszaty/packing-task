@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Service;
 
 use App\Application\DTO\PackProduct;
+use InvalidArgumentException;
 
 final class RequestHashBuilder
 {
@@ -13,25 +14,29 @@ final class RequestHashBuilder
      */
     public function fromProducts(array $products): string
     {
-        $normalized = array_map(
-            static fn (PackProduct $product): array => [
-                'width' => $product->width,
-                'height' => $product->height,
-                'length' => $product->length,
-                'weight' => $product->weight,
-            ],
-            $products,
-        );
+        /** @var array<string, int> $grouped */
+        $grouped = [];
+        foreach ($products as $product) {
+            $productKey = $this->productKey($product);
+            $grouped[$productKey] = ($grouped[$productKey] ?? 0) + 1;
+        }
 
-        usort($normalized, static function (array $a, array $b): int {
-            return [$a['width'], $a['height'], $a['length'], $a['weight']] <=> [$b['width'], $b['height'], $b['length'], $b['weight']];
-        });
+        ksort($grouped);
 
-        return sha1(json_encode($normalized, JSON_THROW_ON_ERROR));
+        return sha1(json_encode($grouped, JSON_THROW_ON_ERROR));
     }
 
     public function fromRawPayload(string $payload): string
     {
         return sha1($payload);
+    }
+
+    private function productKey(PackProduct $product): string
+    {
+        if ($product->id === null) {
+            throw new InvalidArgumentException('Product id is required to build request hash.');
+        }
+
+        return sprintf('id:%d', $product->id);
     }
 }

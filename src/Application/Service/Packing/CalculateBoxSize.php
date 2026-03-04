@@ -22,7 +22,7 @@ final class CalculateBoxSize
     /**
      * @param list<PackagingBox> $boxes
      */
-    public function calculate(PackingRequest $request, array $boxes, string $requestHash): CalculatedBoxSizeResult
+    public function calculate(PackingRequest $request, array $boxes, string $requestHash): CalculatedBoxSize
     {
         $policy = $this->packingPolicyRegistry->resolve($request);
 
@@ -34,7 +34,7 @@ final class CalculateBoxSize
             $visitedSources[$policySource] = true;
 
             try {
-                return new CalculatedBoxSizeResult(
+                return new CalculatedBoxSize(
                     selectedBox: $policy->pack($request, $boxes),
                     source: $policySource,
                 );
@@ -57,6 +57,7 @@ final class CalculateBoxSize
                     'requestHash' => $requestHash,
                     'policy' => $policySource,
                     'failoverPolicy' => $nextPolicy->source(),
+                    'message' => $exception->getMessage(),
                 ]);
 
                 $policy = $nextPolicy;
