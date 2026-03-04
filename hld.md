@@ -6,10 +6,12 @@
 - Support provider evolution (multiple providers in the future).
 
 ## Context
-- Input: list of products `[{width, height, length, weight}]`.
+- Input: list of products `[{id, width, height, length, weight}]`.
 - Internal data: configured boxes from `packaging` table.
 - Primary provider: 3DBinPacking (`/packer/packIntoMany`).
-- Output: behavior-oriented result (`BOX_RETURNED`, `NO_BOX_RETURNED`, `REQUEST_REJECTED`).
+- Output:
+  - success decision with behavior-oriented outcome (`BOX_RETURNED` or `NO_BOX_RETURNED`),
+  - or validation error response (`HTTP 422` with `errors[]`).
 
 ## Architecture
 - Layered architecture:
@@ -43,13 +45,13 @@
 
 ## Core Components
 - Use case:
-  - `CalculateBoxSize`
+  - `FindBoxSize`
 - Policies:
-  - `CalculateBoxSizePolicy`
+  - `PackingPolicyRegistry`
   - `RequiresRefreshPolicy`
 - Policy implementations:
-  - `CalculateBoxSizeWith3DBinPacking`
-  - `CalculateBoxSizeManually`
+  - `ProviderPackingPolicy`
+  - `ManualPackingPolicy`
 - Domain rule:
   - `SmallestBoxSelector`
 - Adapters:
@@ -82,6 +84,7 @@
 - Read model: `LatestPackingResultProjection by NormalizedInputHash`
 - Rules:
   - Input hash is order-insensitive.
+  - Input hash is based on product `id` only (with multiplicity of repeated IDs).
   - Projection serves latest result quickly.
   - Persisted rows stay immutable; new outcomes append new rows.
 
@@ -93,10 +96,11 @@
    - evaluate `RequiresRefreshPolicy`.
    - `NoRefreshNeeded` -> return response immediately.
    - `RefreshRequired`:
-     - try refresh via circuit breaker + provider,
-     - if breaker open/provider unavailable -> return current model response immediately.
+     - attempt refresh calculation via policy registry (provider when available, manual as failover),
+     - persist refresh result row,
+     - return current stored response for the triggering request.
 5. If no projection result:
-   - execute `CalculateBoxSizePolicy`:
+   - execute `PackingPolicyRegistry` flow:
      - provider path (3DBinPacking),
      - manual path (fallback).
 6. Run `SmallestBoxSelector`.
@@ -107,7 +111,7 @@
 - Circuit breaker is mandatory and enabled by default.
 - No retries in provider client.
 - If provider path fails, manual policy is used for normal calculation.
-- For refresh flow, if breaker is still open, response is returned from existing model without blocking.
+- For refresh flow, response is returned from existing stored row for the triggering request; refresh runs best-effort and failures are logged.
 
 ## External API Integration (3DBinPacking)
 - Endpoint: `POST /packer/packIntoMany`
@@ -119,28 +123,22 @@
 ## Response Contract (Behavior-Oriented)
 ```json
 {
-  "outcome": "BOX_RETURNED",
-  "result": {
-    "box": {
-      "id": 3,
-      "width": 30.0,
-      "height": 20.0,
-      "length": 40.0,
-      "maxWeight": 10.0
+  "data": {
+    "type": "packing-decision",
+    "id": "requestHash",
+    "attributes": {
+      "outcome": "BOX_RETURNED",
+      "reason": null,
+      "message": null,
+      "box": {
+        "id": 3,
+        "width": 30.0,
+        "height": 20.0,
+        "length": 40.0,
+        "maxWeight": 10.0
+      }
     }
   },
-  "meta": {
-    "source": "model|provider_3dbinpacking|manual",
-    "requestHash": "..."
-  }
-}
-```
-
-```json
-{
-  "outcome": "NO_BOX_RETURNED",
-  "reason": "NO_SINGLE_BOX_AVAILABLE",
-  "message": "Products cannot be packed into a single configured box.",
   "meta": {
     "source": "provider_3dbinpacking|manual",
     "requestHash": "..."
@@ -150,9 +148,33 @@
 
 ```json
 {
-  "outcome": "REQUEST_REJECTED",
-  "reason": "VALIDATION_ERROR",
-  "message": "width must be greater than 0"
+  "data": {
+    "type": "packing-decision",
+    "id": "requestHash",
+    "attributes": {
+      "outcome": "NO_BOX_RETURNED",
+      "reason": "NO_SINGLE_BOX_AVAILABLE",
+      "message": "Products cannot be packed into a single configured box.",
+      "box": null
+    }
+  },
+  "meta": {
+    "source": "provider_3dbinpacking|manual",
+    "requestHash": "..."
+  }
+}
+```
+
+```json
+{
+  "errors": [
+    {
+      "status": "422",
+      "code": "VALIDATION_ERROR",
+      "title": "Invalid request body",
+      "detail": "id is required"
+    }
+  ]
 }
 ```
 
@@ -161,7 +183,7 @@
 - Performance: projection-first path for repeated requests.
 - Scalability: indexed hash lookup + append-only calculation rows.
 - Maintainability: policy-based provider substitution.
-- Observability: log source path (`model`, `provider_3dbinpacking`, `manual`) and provider/circuit state.
+- Observability: log source path (`provider_3dbinpacking`, `manual`) and provider/circuit state.
 
 ## Engineering Quality Toolchain
 - Static analysis:

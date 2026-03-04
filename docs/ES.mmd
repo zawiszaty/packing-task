@@ -19,10 +19,10 @@ flowchart LR
   API[(3DBinPacking API)]:::system
   CB[(Circuit Breaker)]:::system
   DB[(Packaging DB)]:::system
-  M[[LatestPackingResultProjection by NormalizedInputHash]]:::model
+  M[[LatestPackingResultProjection by InputHash(id+count)]]:::model
 
-  C1[CalculateBoxSize]:::command
-  E1[RequestValidated]:::event
+  C1[FindBoxSize]:::command
+  E1[RequestValidated(id,width,height,length,weight)]:::event
   C2[ReadLatestResultProjection]:::command
   E2[ProjectionResultFound]:::event
   E3[ProjectionResultMissing]:::event
@@ -30,14 +30,13 @@ flowchart LR
   P00[RequiresRefreshPolicy]:::policy
   E11[NoRefreshNeeded]:::event
   E12[RefreshRequired]:::event
-  E13[RefreshSkippedCircuitOpen]:::event
 
-  P[CalculateBoxSizePolicy]:::policy
+  P[PackingPolicyRegistry]:::policy
   C3[CalculateBoxSizeWith3DBinPacking]:::command
-  C8[RefreshWith3DBinPacking]:::command
+  C8[RefreshCalculation]:::command
   E4[ProviderResultReceived]:::event
   E5[ProviderUnavailable]:::event
-  E14[RefreshProviderResultReceived]:::event
+  E14[RefreshResultCalculated]:::event
   C4[CalculateBoxSizeManually]:::command
   E6[ManualResultCalculated]:::event
 
@@ -46,24 +45,24 @@ flowchart LR
   E8[NoSingleBoxAvailable]:::event
   C6[PersistCalculationRow]:::command
   C10[PersistRefreshRow]:::command
-  E9[BoxesReturned]:::event
-
-  C7[ReturnModelResultNoRefresh]:::command
+  C7[ReturnStoredResult]:::command
+  E9[ResponseReturned]:::event
 
   A --> C1 --> E1 --> C2
+  C2 --> M
   C2 --> E2 --> P00
   P00 --> E11 --> C7 --> E9
-  P00 --> E12 --> C8 --> CB
-  CB --> E13 --> C7
-  CB --> API
-  API --> E14 --> C10 --> DB
+  P00 --> E12 --> C8 --> P
+
   C2 --> E3 --> P
 
-  P --> C3 --> CB
+  P --> C3 --> CB --> API
   API --> E4 --> C5
-  CB --> E5 --> C4 --> E6 --> C5
+  P --> C4 --> E6 --> C5
+  CB --> E5 --> C4
 
-  C5 --> E7 --> C6 --> DB --> E9
+  C5 --> E7 --> C6 --> DB --> M
   C5 --> E8 --> C6
-  C2 --> M
-  DB --> M
+  C10 --> DB
+  C8 --> E14 --> C10
+  E14 --> C7

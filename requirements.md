@@ -7,7 +7,7 @@
 - Use local fallback packing logic when external API is unavailable.
 
 ## Functional Requirements
-1. Accept request body as JSON with products list: `[{ "width", "height", "length", "weight" }]`.
+1. Accept request body as JSON with products list: `[{ "id", "width", "height", "length", "weight" }]`.
 2. Validate request:
    - Required fields must exist for each product.
    - Dimensions and weight must be numeric and greater than `0`.
@@ -15,9 +15,10 @@
    - Reject malformed JSON.
    - Use dedicated presentation `Input DTO` contract for request parsing/validation.
 3. Load available boxes from backend configuration (database-backed list from `packaging` table).
-4. Build deterministic hash key from normalized input using order-insensitive product comparison.
+4. Build deterministic hash key from product identifiers only (`id`) with order-insensitive comparison and item multiplicity support.
 5. Check stored previous calculations by hash:
-   - If found, return cached selected box without calling 3DBinPacking.
+   - If found and latest record is non-refreshable, return cached decision without new provider call.
+   - If found and latest record is refreshable (manual source), start refresh attempt and still return cached decision for current request.
 6. When no cached result:
    - Call 3DBinPacking pack endpoint (`POST /packer/packIntoMany`) with account API key.
    - Allow item rotation in any direction.
@@ -28,9 +29,10 @@
 8. Select the smallest usable box among candidates that can hold all products and weight.
 9. Persist calculation result (request hash + selected outcome + normalized provider/manual result + status).
 10. Return response:
-   - Use behavior-oriented outcome codes.
+   - Use behavior-oriented outcome codes for successful processing paths.
    - Success: selected box dimensions/maxWeight (and optionally identifier).
-   - Failure: explicit reason (`REQUEST_REJECTED`, `NO_BOX_RETURNED`, `PROVIDER_UNAVAILABLE`).
+   - Domain failure: explicit reason (`NO_BOX_RETURNED` with reason/message details).
+   - Validation failure: HTTP `422` with `errors[]` payload (`code`, `title`, `detail`), not a domain outcome.
    - Use dedicated presentation `Output DTO` contract for response serialization.
 11. Fallback behavior:
    - If external API is down or times out, run local simple packing heuristic.
@@ -39,9 +41,9 @@
    - Persist fallback result as a new calculation row with `providerSource = manual`.
 12. Refresh behavior for manual results:
    - `PackingCalculation` entity should expose behavior like `requiresRefresh(): bool` based on `providerSource` (for now: `manual` -> `true`, external providers -> `false`).
-   - On later matching requests, if latest cached record is refreshable, attempt provider call (background or synchronous, implementation choice).
+   - On later matching requests, if latest cached record is refreshable, attempt recalculation with policy registry (provider when available, manual when provider path is unavailable/fails).
    - If latest record is already from `provider_3dbinpacking`, refresh is not required and no provider re-call is triggered.
-   - Provider success should be stored as another new row (do not overwrite previous manual row), preserving history and still serving cached manual result when provider remains unavailable.
+   - Refresh result should be stored as another new row (do not overwrite previous row), preserving history and still serving cached manual result for the request that triggered refresh.
 13. Support operational edge cases typical for cart usage:
    - duplicate products,
    - very small/very large numeric values,
@@ -71,7 +73,7 @@
    - Do not expose external API key or raw sensitive data in responses/logs.
 7. Observability:
    - Structured logs with correlation/request hash, cache hit/miss, fallback usage, provider latency.
-   - Metrics counters: `cache_hit`, `cache_miss`, `fallback_used`, `provider_error`, `validation_error`.
+   - Metrics counters: `cache_hit`, `cache_miss`, `fallback_used`, `provider_error`, `validation_error` (planned, not implemented in current code).
 8. Testability:
    - Unit tests for domain logic and fallback algorithm.
    - Integration tests for Doctrine repositories and API client adapter.
@@ -86,3 +88,4 @@
 
 ## Decisions Confirmed
 - Request hash is order-insensitive, so `[item1, item2]` and `[item2, item1]` use the same cached key.
+- Request hash identity is based on product `id` values (plus multiplicity), not product dimensions/weight.
