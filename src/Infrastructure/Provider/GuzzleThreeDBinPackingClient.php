@@ -65,7 +65,7 @@ final class GuzzleThreeDBinPackingClient implements ThreeDBinPackingClient
         }
 
         if (!$decoded instanceof PackApiResponse) {
-            $decodedType = is_object($decoded) ? $decoded::class : gettype($decoded);
+            $decodedType = get_debug_type($decoded);
 
             $this->logger->error('provider.3dbinpacking.invalid_payload_type', [
                 'endpoint' => $this->endpoint,

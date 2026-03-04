@@ -6,6 +6,7 @@ namespace Tests\Unit\Application\Service;
 
 use App\Application\DTO\PackProduct;
 use App\Application\Service\RequestHashBuilder;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 final class RequestHashBuilderTest extends TestCase
@@ -62,7 +63,7 @@ final class RequestHashBuilderTest extends TestCase
     {
         $products = [new PackProduct(width: 1.0, height: 2.0, length: 3.0, weight: 4.0)];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Product id is required to build request hash.');
 
         $this->requestHashBuilder->fromProducts(products: $products);
