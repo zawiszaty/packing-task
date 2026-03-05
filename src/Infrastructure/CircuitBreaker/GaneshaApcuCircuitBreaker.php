@@ -16,8 +16,8 @@ final class GaneshaApcuCircuitBreaker implements CircuitBreaker
     public function __construct(
         int $failureRateThreshold = 50,
         int $minimumRequests = 10,
-        int $intervalToHalfOpen = 5,
-        int $timeWindow = 30,
+        int $intervalToHalfOpen = 60,
+        int $timeWindow = 180,
     ) {
         if ($failureRateThreshold < 1 || $failureRateThreshold > 100) {
             throw new InvalidArgumentException('failureRateThreshold must be between 1 and 100.');
